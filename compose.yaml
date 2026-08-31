@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    environment:
+      POSTGRES_DB: gremlin
+      POSTGRES_USER: gremlin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gremlin-dev}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gremlin -d gremlin"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/prime/Dockerfile
+    command: ["node", "apps/prime/dist/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://gremlin:${POSTGRES_PASSWORD:-gremlin-dev}@postgres:5432/gremlin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  gremlin-prime:
+    build:
+      context: .
+      dockerfile: apps/prime/Dockerfile
+    environment:
+      DATABASE_URL: postgres://gremlin:${POSTGRES_PASSWORD:-gremlin-dev}@postgres:5432/gremlin
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
