@@ -1,0 +1,19 @@
+{
+  "name": "@gremlin/prime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "migrate": "tsx src/migrate.ts",
+    "start": "node dist/main.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "fastify": "^5.12.1",
+    "postgres": "^3.4.9",
+    "zod": "^4.5.4"
+  }
+}

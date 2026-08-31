@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  compose-smoke:
+    name: Compose smoke test
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Start the stack and verify Gremlin Prime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker compose up --build --detach
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/health > health.json \
+              && grep --quiet --fixed-strings '"status":"ok"' health.json; then
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          exit 1
+
+      - name: Display stack diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          docker compose ps || true
+          docker compose logs || true
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans
