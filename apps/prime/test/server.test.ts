@@ -43,3 +43,22 @@ describe("GET /health", () => {
     });
   });
 });
+
+describe("unhandled request failures", () => {
+  it("returns a generic error without exposing internal data", async () => {
+    const server = buildServer({
+      checkDatabase: async () => undefined,
+      logLevel: false
+    });
+    servers.push(server);
+    server.get("/failure", async () => {
+      throw new Error("interaction-content-must-not-leak");
+    });
+
+    const response = await server.inject({ method: "GET", url: "/failure" });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({ error: "internal_server_error" });
+    expect(response.body).not.toContain("interaction-content-must-not-leak");
+  });
+});

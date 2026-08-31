@@ -7,8 +7,10 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/main.ts",
     "migrate": "tsx src/migrate.ts",
+    "principal:create": "tsx src/create-principal.ts",
     "start": "node dist/main.js",
-    "test": "vitest run",
+    "test": "vitest run --exclude '**/*.integration.test.ts'",
+    "test:integration": "vitest run test/integration",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

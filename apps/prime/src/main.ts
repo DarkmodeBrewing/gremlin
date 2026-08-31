@@ -1,16 +1,12 @@
+import { buildApplication } from "./application.js";
 import { loadConfiguration } from "./config.js";
-import {
-  checkDatabase,
-  closeDatabase,
-  createDatabase
-} from "./database.js";
-import { buildServer } from "./server.js";
+import { closeDatabase, createDatabase } from "./database.js";
 
 async function start(): Promise<void> {
   const configuration = loadConfiguration();
   const database = createDatabase(configuration);
-  const server = buildServer({
-    checkDatabase: () => checkDatabase(database),
+  const server = buildApplication({
+    database,
     logLevel: configuration.LOG_LEVEL
   });
 
