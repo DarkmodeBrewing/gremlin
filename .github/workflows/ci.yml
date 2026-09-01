@@ -63,14 +63,20 @@ jobs:
 
       - name: Start the stack and verify Gremlin Prime
         shell: bash
+        env:
+          DEFAULT_CHAT_MODEL: example/model
+          GREMLIN_CHAT_API_KEY: gremlin-ci-placeholder-000000000000
+          OPENROUTER_API_KEY: openrouter-ci-placeholder-0000000000
         run: |
           set -euo pipefail
 
           docker compose up --build --detach
 
           for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:3000/health > health.json \
-              && grep --quiet --fixed-strings '"status":"ok"' health.json; then
+            if curl --fail --silent http://127.0.0.1:3000/health > prime-health.json \
+              && grep --quiet --fixed-strings '"status":"ok"' prime-health.json \
+              && curl --fail --silent http://127.0.0.1:3001/health > chat-health.json \
+              && grep --quiet --fixed-strings '"status":"ok"' chat-health.json; then
               exit 0
             fi
 
