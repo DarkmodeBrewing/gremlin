@@ -26,6 +26,9 @@ export function createApiKey(): string {
 }
 
 export function hashApiKey(apiKey: string): string {
+  // API keys contain 256 bits from a CSPRNG, unlike human-selected passwords.
+  // A fast digest is deliberate: offline guessing is infeasible, while a slow
+  // password KDF would make unauthenticated request flooding more expensive.
   return createHash("sha256").update(apiKey, "utf8").digest("hex");
 }
 

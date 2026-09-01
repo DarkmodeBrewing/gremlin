@@ -9,10 +9,10 @@ export type ApplicationDependencies = Readonly<{
   logLevel: string | false;
 }>;
 
-export function buildApplication(
+export async function buildApplication(
   dependencies: ApplicationDependencies
-): FastifyInstance {
-  const server = buildServer({
+): Promise<FastifyInstance> {
+  const server = await buildServer({
     checkDatabase: () => checkDatabase(dependencies.database),
     logLevel: dependencies.logLevel
   });

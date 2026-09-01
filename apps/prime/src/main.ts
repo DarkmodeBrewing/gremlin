@@ -5,7 +5,7 @@ import { closeDatabase, createDatabase } from "./database.js";
 async function start(): Promise<void> {
   const configuration = loadConfiguration();
   const database = createDatabase(configuration);
-  const server = buildApplication({
+  const server = await buildApplication({
     database,
     logLevel: configuration.LOG_LEVEL
   });

@@ -187,6 +187,14 @@ This includes:
 
 Sanitize potentially sensitive metadata before persistence.
 
+### Rate Limits Are Canon
+
+Every externally reachable Gremlin Prime API endpoint except operational health checks must be rate-limited before authentication, database access or other expensive work.
+
+Rate limiting is a server-side boundary. Do not rely solely on clients, models or an ingress proxy to enforce it.
+
+Tests must verify limit enforcement and the `429` response contract. A process-local store is acceptable only while Gremlin Prime runs as a single instance; use a shared store before horizontal scaling.
+
 ⸻
 
 9. YAGNI

@@ -22,6 +22,7 @@ M2 — Interaction archive:
 - append-only interaction storage with source provenance
 - authenticated `POST /interactions`
 - source-principal-constrained `GET /interactions/:id`
+- API-wide per-IP rate limiting before authentication and database work
 - sensitive metadata rejection
 - real PostgreSQL integration tests
 

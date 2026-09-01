@@ -22,9 +22,9 @@ describe("interaction archive", () => {
   let database: Sql;
   let server: FastifyInstance;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     database = postgres(databaseUrl, { max: 5 });
-    server = buildApplication({ database, logLevel: false });
+    server = await buildApplication({ database, logLevel: false });
   });
 
   beforeEach(async () => {
