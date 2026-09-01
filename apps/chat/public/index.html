@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Gremlin Chat</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <div>
+        <p class="eyebrow">Gremlin v0.1</p>
+        <h1>Gremlin Chat</h1>
+      </div>
+      <button id="new-conversation" class="secondary" type="button">
+        New conversation
+      </button>
+    </header>
+
+    <main>
+      <section
+        id="messages"
+        class="messages"
+        aria-live="polite"
+        aria-label="Conversation"
+      ></section>
+
+      <p id="status" class="status" role="status">Ready.</p>
+
+      <form id="chat-form">
+        <label for="message">Message</label>
+        <textarea
+          id="message"
+          name="message"
+          rows="3"
+          maxlength="100000"
+          placeholder="Tell the gremlin something worth hoarding…"
+          required
+        ></textarea>
+        <button id="send" type="submit">Send</button>
+      </form>
+    </main>
+  </body>
+</html>
