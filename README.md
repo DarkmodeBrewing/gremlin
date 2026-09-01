@@ -26,18 +26,31 @@ M2 — Interaction archive:
 - sensitive metadata rejection
 - real PostgreSQL integration tests
 
+M3 — Gremlin Chat:
+
+- deliberately basic single-conversation browser UI
+- separate Fastify backend-for-frontend
+- configurable OpenRouter model with streamed responses
+- stable browser-local conversation UUID and transcript
+- server-side Gremlin Prime and OpenRouter credentials
+- user and assistant interaction ingestion with visible persistence state
+- incomplete assistant-response archival when a stream fails after emitting text
+- rate-limited, size-bounded chat requests
+
 ## Run locally
 
 Requirements: Docker with Compose support.
 
+Copy the local configuration and start the persistence services first:
+
 ```bash
 cp .env.example .env
-docker compose up --build
+docker compose up --build --detach postgres migrate gremlin-prime
 ```
 
-Gremlin Prime is then available at `http://localhost:3000`. Its health endpoint returns HTTP 200 when PostgreSQL is reachable and HTTP 503 when the dependency is unavailable.
+Gremlin Prime is available at `http://localhost:3000`. Its health endpoint returns HTTP 200 when PostgreSQL is reachable and HTTP 503 when the dependency is unavailable.
 
-Create an interaction-ingesting principal and capture the API key printed to standard output:
+Create Gremlin Chat's interaction-ingesting principal and capture the API key printed to standard output:
 
 ```bash
 docker compose run --rm gremlin-prime \
@@ -45,6 +58,22 @@ docker compose run --rm gremlin-prime \
 ```
 
 The key is shown once. Store it in a secret manager; only its SHA-256 hash is persisted.
+
+Set the generated key, a dedicated OpenRouter API key with an appropriate credit limit, and an explicit OpenRouter model slug in `.env`:
+
+```dotenv
+GREMLIN_CHAT_API_KEY=grm_generated_value
+OPENROUTER_API_KEY=sk-or-generated-value
+DEFAULT_CHAT_MODEL=provider/model
+```
+
+Then start the complete stack:
+
+```bash
+docker compose up --build --detach
+```
+
+Gremlin Chat is available at `http://localhost:3001`. Its host port binds to loopback by default; use an authenticated reverse proxy or another trusted access layer before exposing it to a network.
 
 Append and retrieve an interaction:
 
@@ -92,10 +121,13 @@ pnpm migrate
 pnpm dev
 ```
 
+Local Gremlin Chat development additionally requires `GREMLIN_CHAT_API_KEY`, `OPENROUTER_API_KEY`, `DEFAULT_CHAT_MODEL`, and optionally `GREMLIN_PRIME_URL` in the process environment.
+
 ## Repository layout
 
 ```text
 apps/prime/  Gremlin Prime HTTP application and migration runner
+apps/chat/   Gremlin Chat browser UI and backend
 migrations/  Append-only SQL migrations
 docs/        Canonical specifications
 ```
