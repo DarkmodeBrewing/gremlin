@@ -43,5 +43,24 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  gremlin-chat:
+    build:
+      context: .
+      dockerfile: apps/chat/Dockerfile
+    environment:
+      DEFAULT_CHAT_MODEL: ${DEFAULT_CHAT_MODEL:-}
+      GREMLIN_CHAT_API_KEY: ${GREMLIN_CHAT_API_KEY:-}
+      GREMLIN_PRIME_URL: http://gremlin-prime:3000
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 3001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    ports:
+      - "127.0.0.1:${CHAT_HTTP_PORT:-3001}:3001"
+    depends_on:
+      gremlin-prime:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   postgres-data:
