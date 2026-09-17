@@ -30,10 +30,18 @@ services:
       context: .
       dockerfile: apps/prime/Dockerfile
     environment:
+      CONSOLIDATION_BATCH_SIZE: ${CONSOLIDATION_BATCH_SIZE:-20}
+      CONSOLIDATION_MAX_SOURCE_CHARACTERS: ${CONSOLIDATION_MAX_SOURCE_CHARACTERS:-200000}
+      CONSOLIDATION_MODEL: ${CONSOLIDATION_MODEL:-}
+      CONSOLIDATION_PROVIDER: openrouter
       DATABASE_URL: postgres://gremlin:${POSTGRES_PASSWORD:-gremlin-dev}@postgres:5432/gremlin
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-}
+      EMBEDDING_PROVIDER: openrouter
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: 3000
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      MODEL_REQUEST_TIMEOUT_MS: ${MODEL_REQUEST_TIMEOUT_MS:-60000}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     ports:
       - "${HTTP_PORT:-3000}:3000"
     depends_on:

@@ -1,10 +1,15 @@
 import type { FastifyInstance } from "fastify";
 
+import {
+  registerConsolidationRoutes,
+  type ConsolidationDependencies
+} from "./consolidation.js";
 import { checkDatabase, type Database } from "./database.js";
 import { registerInteractionRoutes } from "./interactions.js";
 import { buildServer } from "./server.js";
 
 export type ApplicationDependencies = Readonly<{
+  consolidation: Omit<ConsolidationDependencies, "database">;
   database: Database;
   logLevel: string | false;
 }>;
@@ -18,6 +23,10 @@ export async function buildApplication(
   });
 
   registerInteractionRoutes(server, dependencies.database);
+  registerConsolidationRoutes(server, {
+    ...dependencies.consolidation,
+    database: dependencies.database
+  });
 
   return server;
 }

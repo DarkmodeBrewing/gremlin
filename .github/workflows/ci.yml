@@ -64,7 +64,9 @@ jobs:
       - name: Start the stack and verify Gremlin Prime
         shell: bash
         env:
+          CONSOLIDATION_MODEL: example/consolidation-model
           DEFAULT_CHAT_MODEL: example/model
+          EMBEDDING_MODEL: example/embedding-model
           GREMLIN_CHAT_API_KEY: gremlin-ci-placeholder-000000000000
           OPENROUTER_API_KEY: openrouter-ci-placeholder-0000000000
         run: |
@@ -97,7 +99,7 @@ jobs:
         run: docker compose down --volumes --remove-orphans
 
   interaction-integration:
-    name: Interaction integration
+    name: Prime integration
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -144,5 +146,5 @@ jobs:
       - name: Apply migrations
         run: pnpm migrate
 
-      - name: Test interaction persistence and authorization
+      - name: Test Prime persistence and authorization
         run: pnpm --filter @gremlin/prime test:integration

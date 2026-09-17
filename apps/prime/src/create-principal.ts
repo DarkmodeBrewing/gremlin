@@ -3,10 +3,13 @@ import { loadConfiguration } from "./config.js";
 import { closeDatabase, createDatabase } from "./database.js";
 
 const principalIdResult = principalIdSchema.safeParse(process.argv[2]);
+const permissionOption = process.argv[3];
+const validPermissionOption =
+  permissionOption === undefined || permissionOption === "--can-consolidate";
 
-if (!principalIdResult.success) {
+if (!principalIdResult.success || !validPermissionOption) {
   process.stderr.write(
-    "Usage: pnpm principal:create <client|agent|system>:<lowercase-name>\n"
+    "Usage: pnpm principal:create <client|agent|system>:<lowercase-name> [--can-consolidate]\n"
   );
   process.exitCode = 1;
 } else {
@@ -19,12 +22,14 @@ if (!principalIdResult.success) {
       INSERT INTO principals (
         principal_id,
         api_key_hash,
-        can_ingest_interactions
+        can_ingest_interactions,
+        can_consolidate
       )
       VALUES (
         ${principalIdResult.data},
         ${hashApiKey(apiKey)},
-        true
+        ${permissionOption === undefined},
+        ${permissionOption === "--can-consolidate"}
       )
     `;
 
