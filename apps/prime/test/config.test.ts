@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { loadConfiguration } from "../src/config.js";
+import {
+  loadConfiguration,
+  loadConsolidationConfiguration
+} from "../src/config.js";
 
 describe("loadConfiguration", () => {
   it("applies safe defaults", () => {
@@ -25,6 +28,46 @@ describe("loadConfiguration", () => {
 
     try {
       loadConfiguration({ DATABASE_URL: sensitiveValue });
+    } catch (error: unknown) {
+      expect(String(error)).not.toContain(sensitiveValue);
+    }
+  });
+});
+
+describe("loadConsolidationConfiguration", () => {
+  it("loads explicit models and applies bounded defaults", () => {
+    const configuration = loadConsolidationConfiguration({
+      CONSOLIDATION_MODEL: "example/consolidator",
+      EMBEDDING_MODEL: "example/embedding",
+      OPENROUTER_API_KEY: "openrouter-test-key"
+    });
+
+    expect(configuration).toMatchObject({
+      CONSOLIDATION_BATCH_SIZE: 20,
+      CONSOLIDATION_MAX_SOURCE_CHARACTERS: 200_000,
+      CONSOLIDATION_PROVIDER: "openrouter",
+      EMBEDDING_PROVIDER: "openrouter",
+      MODEL_REQUEST_TIMEOUT_MS: 60_000
+    });
+  });
+
+  it("reports missing secret fields without printing secret values", () => {
+    const sensitiveValue = "short";
+
+    expect(() =>
+      loadConsolidationConfiguration({
+        CONSOLIDATION_MODEL: "example/consolidator",
+        EMBEDDING_MODEL: "example/embedding",
+        OPENROUTER_API_KEY: sensitiveValue
+      })
+    ).toThrow("Invalid consolidation configuration fields: OPENROUTER_API_KEY");
+
+    try {
+      loadConsolidationConfiguration({
+        CONSOLIDATION_MODEL: "example/consolidator",
+        EMBEDDING_MODEL: "example/embedding",
+        OPENROUTER_API_KEY: sensitiveValue
+      });
     } catch (error: unknown) {
       expect(String(error)).not.toContain(sensitiveValue);
     }

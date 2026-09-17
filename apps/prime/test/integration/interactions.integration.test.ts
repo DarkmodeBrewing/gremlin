@@ -24,7 +24,24 @@ describe("interaction archive", () => {
 
   beforeAll(async () => {
     database = postgres(databaseUrl, { max: 5 });
-    server = await buildApplication({ database, logLevel: false });
+    server = await buildApplication({
+      consolidation: {
+        batchSize: 20,
+        embeddingProvider: {
+          configuredModel: "unused",
+          embedMany: async () => ({ embeddings: [], model: "unused" }),
+          name: "test"
+        },
+        maxSourceCharacters: 200_000,
+        provider: {
+          consolidate: async () => [],
+          model: "unused",
+          name: "test"
+        }
+      },
+      database,
+      logLevel: false
+    });
   });
 
   beforeEach(async () => {

@@ -37,18 +37,26 @@ M3 — Gremlin Chat:
 - incomplete assistant-response archival when a stream fails after emitting text
 - rate-limited, size-bounded chat requests
 
+M4 — Consolidation:
+
+- explicit, separately authorized `POST /admin/consolidate`
+- bounded unprocessed-interaction claims without mutating raw history
+- schema-constrained and runtime-validated memory extraction
+- complete interaction evidence for every derived memory
+- abstracted consolidation and embedding providers with OpenRouter implementations
+- pgvector memory storage with recorded embedding model and dimensions
+- visible failed runs whose source interactions remain retryable
+
 ## Run locally
 
 Requirements: Docker with Compose support.
 
-Copy the local configuration and start the persistence services first:
+Copy the local configuration and start PostgreSQL plus migrations first:
 
 ```bash
 cp .env.example .env
-docker compose up --build --detach postgres migrate gremlin-prime
+docker compose up --build --detach postgres migrate
 ```
-
-Gremlin Prime is available at `http://localhost:3000`. Its health endpoint returns HTTP 200 when PostgreSQL is reachable and HTTP 503 when the dependency is unavailable.
 
 Create Gremlin Chat's interaction-ingesting principal and capture the API key printed to standard output:
 
@@ -65,6 +73,8 @@ Set the generated key, a dedicated OpenRouter API key with an appropriate credit
 GREMLIN_CHAT_API_KEY=grm_generated_value
 OPENROUTER_API_KEY=sk-or-generated-value
 DEFAULT_CHAT_MODEL=provider/model
+CONSOLIDATION_MODEL=provider/model
+EMBEDDING_MODEL=provider/embedding-model
 ```
 
 Then start the complete stack:
@@ -72,6 +82,10 @@ Then start the complete stack:
 ```bash
 docker compose up --build --detach
 ```
+
+Gremlin Prime is available at `http://localhost:3000`. Its health endpoint
+returns HTTP 200 when PostgreSQL is reachable and HTTP 503 when the dependency
+is unavailable.
 
 Gremlin Chat is available at `http://localhost:3001`. Its host port binds to loopback by default; use an authenticated reverse proxy or another trusted access layer before exposing it to a network.
 
@@ -94,6 +108,28 @@ curl http://localhost:3000/interactions/INTERACTION_ID \
 ```
 
 An authenticated principal can retrieve only interactions it submitted. Requests cannot supply or override `sourcePrincipal`.
+
+Create the separately authorized consolidator principal and store its one-time API key:
+
+```bash
+docker compose run --rm gremlin-prime \
+  node apps/prime/dist/create-principal.js system:consolidator --can-consolidate
+```
+
+Run one bounded consolidation batch explicitly:
+
+```bash
+curl --request POST http://localhost:3000/admin/consolidate \
+  --header "Authorization: Bearer $GREMLIN_CONSOLIDATOR_API_KEY" \
+  --header "Content-Type: application/json" \
+  --data '{}'
+```
+
+A successful response reports the run ID and source/memory counts. Provider,
+embedding, validation, or persistence failure returns a visible failed run
+(`502` for an external provider stage, `500` for persistence). A failed run does
+not mark its source interactions as successfully processed, so a later manual
+request can retry them.
 
 ## Development
 
@@ -121,7 +157,9 @@ pnpm migrate
 pnpm dev
 ```
 
-Local Gremlin Chat development additionally requires `GREMLIN_CHAT_API_KEY`, `OPENROUTER_API_KEY`, `DEFAULT_CHAT_MODEL`, and optionally `GREMLIN_PRIME_URL` in the process environment.
+Local development additionally requires `GREMLIN_CHAT_API_KEY`,
+`OPENROUTER_API_KEY`, `DEFAULT_CHAT_MODEL`, `CONSOLIDATION_MODEL`, and
+`EMBEDDING_MODEL`. `GREMLIN_PRIME_URL` remains optional for Gremlin Chat.
 
 ## Repository layout
 
