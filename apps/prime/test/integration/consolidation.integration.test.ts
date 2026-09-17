@@ -48,7 +48,8 @@ describe("manual consolidation", () => {
           consolidate,
           model: "example/consolidator",
           name: "test-consolidation"
-        }
+        },
+        rateLimit: { maximum: 100, windowMilliseconds: 60_000 }
       },
       database,
       logLevel: false

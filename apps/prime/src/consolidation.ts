@@ -46,6 +46,10 @@ export type ConsolidationDependencies = Readonly<{
   embeddingProvider: EmbeddingProvider;
   maxSourceCharacters: number;
   provider: ConsolidationProvider;
+  rateLimit?: Readonly<{
+    maximum: number;
+    windowMilliseconds: number;
+  }>;
 }>;
 
 export class ConsolidationExecutionError extends Error {
@@ -458,7 +462,10 @@ export function registerConsolidationRoutes(
     "/admin/consolidate",
     {
       config: {
-        rateLimit: { max: 5, timeWindow: 60_000 }
+        rateLimit: {
+          max: dependencies.rateLimit?.maximum ?? 5,
+          timeWindow: dependencies.rateLimit?.windowMilliseconds ?? 60_000
+        }
       }
     },
     async (request, reply) => {
