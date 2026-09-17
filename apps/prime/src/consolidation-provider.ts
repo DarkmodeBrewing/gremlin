@@ -1,6 +1,49 @@
 import { z } from "zod";
 
-const namespacePattern = /^[a-z0-9]+(?:[/-][a-z0-9][a-z0-9-]*)*$/;
+const namespaceJsonSchemaPattern = "^[a-z0-9][a-z0-9/-]*$";
+
+function isLowercaseAlphaNumeric(character: string): boolean {
+  const codePoint = character.codePointAt(0);
+
+  return (
+    codePoint !== undefined &&
+    ((codePoint >= 48 && codePoint <= 57) ||
+      (codePoint >= 97 && codePoint <= 122))
+  );
+}
+
+function isValidNamespace(namespace: string): boolean {
+  return namespace.split("/").every((segment) => {
+    if (
+      segment.length === 0 ||
+      !isLowercaseAlphaNumeric(segment[0]!) ||
+      !isLowercaseAlphaNumeric(segment.at(-1)!)
+    ) {
+      return false;
+    }
+
+    let previousWasHyphen = false;
+
+    for (const character of segment) {
+      if (character === "-") {
+        if (previousWasHyphen) {
+          return false;
+        }
+
+        previousWasHyphen = true;
+        continue;
+      }
+
+      if (!isLowercaseAlphaNumeric(character)) {
+        return false;
+      }
+
+      previousWasHyphen = false;
+    }
+
+    return true;
+  });
+}
 
 const candidateMemorySchema = z
   .object({
@@ -11,7 +54,7 @@ const candidateMemorySchema = z
       .min(1)
       .max(50)
       .refine((ids) => new Set(ids).size === ids.length),
-    namespace: z.string().min(1).max(200).regex(namespacePattern)
+    namespace: z.string().min(1).max(200).refine(isValidNamespace)
   })
   .strict();
 
@@ -79,7 +122,7 @@ const outputJsonSchema = {
           namespace: {
             maxLength: 200,
             minLength: 1,
-            pattern: namespacePattern.source,
+            pattern: namespaceJsonSchemaPattern,
             type: "string"
           }
         },

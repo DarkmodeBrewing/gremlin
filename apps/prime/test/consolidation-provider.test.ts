@@ -99,4 +99,40 @@ describe("OpenRouter consolidation provider", () => {
       ConsolidationProviderError
     );
   });
+
+  it("rejects malformed namespaces without vulnerable backtracking", async () => {
+    const source = sourceInteraction();
+    const provider = createOpenRouterConsolidationProvider({
+      apiKey: "test-key",
+      fetchImplementation: vi.fn<typeof fetch>(async () =>
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    memories: [
+                      {
+                        confidence: 0.9,
+                        content: "Invalid namespace",
+                        evidenceInteractionIds: [source.id],
+                        namespace: `0-0${"-0".repeat(2_000)}`
+                      }
+                    ]
+                  })
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      ),
+      model: "example/consolidator",
+      timeoutMilliseconds: 1_000
+    });
+
+    await expect(provider.consolidate([source])).rejects.toBeInstanceOf(
+      ConsolidationProviderError
+    );
+  });
 });

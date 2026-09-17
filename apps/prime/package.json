@@ -10,7 +10,7 @@
     "principal:create": "tsx src/create-principal.ts",
     "start": "node dist/main.js",
     "test": "vitest run --exclude '**/*.integration.test.ts'",
-    "test:integration": "vitest run test/integration",
+    "test:integration": "vitest run test/integration --no-file-parallelism",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

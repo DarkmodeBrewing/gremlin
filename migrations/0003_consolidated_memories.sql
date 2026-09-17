@@ -74,7 +74,11 @@ CREATE TABLE memories (
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT memories_namespace_format
     CHECK (
-      namespace ~ '^[a-z0-9]+([/-][a-z0-9][a-z0-9-]*)*$'
+      namespace ~ '^[a-z0-9]([a-z0-9/-]*[a-z0-9])?$'
+      AND namespace NOT LIKE '%//%'
+      AND namespace NOT LIKE '%--%'
+      AND namespace NOT LIKE '%/-%'
+      AND namespace NOT LIKE '%-/%'
       AND char_length(namespace) <= 200
     ),
   CONSTRAINT memories_content_not_empty
