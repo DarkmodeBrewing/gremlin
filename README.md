@@ -47,6 +47,16 @@ M4 — Consolidation:
 - pgvector memory storage with recorded embedding model and dimensions
 - visible failed runs whose source interactions remain retryable
 
+M5 — Retrieval:
+
+- explicit exact or hierarchical namespace-read policies per principal
+- authenticated `POST /memory/search` using the recorded embedding model
+- authenticated, authorization-constrained `GET /memory/:id`
+- namespace filtering inside the Prime database query
+- bounded Gremlin Chat retrieval using the latest user message
+- clearly delimited, untrusted memory context injection before OpenRouter
+- visible memory-retrieval failure without losing the archived user interaction
+
 ## Run locally
 
 Requirements: Docker with Compose support.
@@ -131,6 +141,28 @@ embedding, validation, or persistence failure returns a visible failed run
 not mark its source interactions as successfully processed, so a later manual
 request can retry them.
 
+Grant Gremlin Chat only the namespaces it may read. A plain namespace is an
+exact grant; a `/*` suffix includes that namespace and all descendants:
+
+```bash
+docker compose run --rm gremlin-prime \
+  node apps/prime/dist/grant-memory-read.js \
+  client:gremlin-chat identity preferences "user/*" "programming/*" "projects/*" "brewing/*"
+```
+
+Search authorized memory directly:
+
+```bash
+curl --request POST http://localhost:3000/memory/search \
+  --header "Authorization: Bearer $GREMLIN_API_KEY" \
+  --header "Content-Type: application/json" \
+  --data '{"query":"Do you know my cat?","limit":5}'
+```
+
+Prime applies namespace authorization in the database query. An unauthorized
+memory is absent from search results, and direct retrieval conceals it with
+HTTP 404.
+
 ## Development
 
 Requirements: Node.js 24+ and pnpm 11.
@@ -159,7 +191,8 @@ pnpm dev
 
 Local development additionally requires `GREMLIN_CHAT_API_KEY`,
 `OPENROUTER_API_KEY`, `DEFAULT_CHAT_MODEL`, `CONSOLIDATION_MODEL`, and
-`EMBEDDING_MODEL`. `GREMLIN_PRIME_URL` remains optional for Gremlin Chat.
+`EMBEDDING_MODEL`. `GREMLIN_PRIME_URL`, `MEMORY_SEARCH_LIMIT`, and
+`MEMORY_CONTEXT_MAX_TOKENS` remain optional for Gremlin Chat.
 
 ## Repository layout
 

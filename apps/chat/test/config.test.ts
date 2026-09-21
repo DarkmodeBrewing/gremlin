@@ -16,7 +16,9 @@ describe("loadConfiguration", () => {
       GREMLIN_PRIME_URL: "http://localhost:3000",
       HTTP_HOST: "0.0.0.0",
       HTTP_PORT: 3001,
-      LOG_LEVEL: "info"
+      LOG_LEVEL: "info",
+      MEMORY_CONTEXT_MAX_TOKENS: 1_200,
+      MEMORY_SEARCH_LIMIT: 5
     });
   });
 

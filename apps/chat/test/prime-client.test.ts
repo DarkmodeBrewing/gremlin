@@ -33,4 +33,42 @@ describe("PrimeClient", () => {
     );
     expect(String(init?.body)).not.toContain("gremlin-secret");
   });
+
+  it("searches memory with the same server-side credential", async () => {
+    const fetchMock = vi.fn(
+      async (_input: string | URL | Request, _init?: RequestInit) =>
+        new Response(
+          JSON.stringify({
+            memories: [
+              {
+                confidence: 0.95,
+                content: "User's cat is named Alvar.",
+                id: "019c51d9-d7e6-7e1f-a399-ff70a508b050",
+                namespace: "user/pets",
+                similarity: 0.91
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+    );
+    const client = createPrimeClient({
+      apiKey: "gremlin-secret",
+      baseUrl: "http://prime.test/",
+      fetchImplementation: fetchMock as unknown as typeof fetch
+    });
+
+    const memories = await client.searchMemory("Do you know my cat?", 3);
+
+    expect(memories[0]?.content).toBe("User's cat is named Alvar.");
+    const [input, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(input)).toBe("http://prime.test/memory/search");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer gremlin-secret"
+    );
+    expect(JSON.parse(String(init?.body))).toEqual({
+      limit: 3,
+      query: "Do you know my cat?"
+    });
+  });
 });
