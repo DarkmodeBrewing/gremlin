@@ -9,6 +9,8 @@ const configurationSchema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
+  MEMORY_CONTEXT_MAX_TOKENS: z.coerce.number().int().min(100).max(8_000).default(1_200),
+  MEMORY_SEARCH_LIMIT: z.coerce.number().int().min(1).max(20).default(5),
   OPENROUTER_API_KEY: z.string().min(16).max(512)
 });
 

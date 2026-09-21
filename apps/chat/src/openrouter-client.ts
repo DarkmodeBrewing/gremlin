@@ -1,7 +1,7 @@
 import { createParser } from "eventsource-parser";
 import { z } from "zod";
 
-import type { ChatMessage } from "./contracts.js";
+import type { ModelMessage } from "./contracts.js";
 
 const streamChunkSchema = z
   .object({
@@ -31,7 +31,7 @@ export type CompletionResult = Readonly<{
 
 export interface OpenRouterClient {
   streamCompletion(
-    messages: readonly ChatMessage[],
+    messages: readonly ModelMessage[],
     onDelta: (content: string) => void,
     signal?: AbortSignal
   ): Promise<CompletionResult>;

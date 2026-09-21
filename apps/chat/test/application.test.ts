@@ -22,7 +22,10 @@ function createPrimeClient(): PrimeClient {
       calls += 1;
       return { id: calls === 1 ? userInteractionId : assistantInteractionId };
     },
-    async checkHealth() {}
+    async checkHealth() {},
+    async searchMemory() {
+      return [];
+    }
   };
 }
 
@@ -91,7 +94,10 @@ describe("POST /api/chat", () => {
       async appendInteraction() {
         throw new Error("Prime unavailable");
       },
-      async checkHealth() {}
+      async checkHealth() {},
+      async searchMemory() {
+        return [];
+      }
     };
     const server = await buildApplication({
       logLevel: false,
@@ -127,7 +133,10 @@ describe("POST /api/chat", () => {
 
         return { id: userInteractionId };
       },
-      async checkHealth() {}
+      async checkHealth() {},
+      async searchMemory() {
+        return [];
+      }
     };
     const server = await buildApplication({
       logLevel: false,
@@ -190,6 +199,89 @@ describe("POST /api/chat", () => {
       role: "assistant"
     });
   });
+
+  it("retrieves memory and injects a bounded untrusted context block", async () => {
+    const primeClient = createPrimeClient();
+    const searchMemory = vi.spyOn(primeClient, "searchMemory").mockResolvedValue([
+      {
+        confidence: 0.95,
+        content: "User's cat is named Alvar.",
+        id: "019c51d9-d7e6-7e1f-a399-ff70a508b050",
+        namespace: "user/pets",
+        similarity: 0.91
+      }
+    ]);
+    const streamCompletion = vi.fn<OpenRouterClient["streamCompletion"]>(
+      async (_messages, onDelta) => {
+        onDelta("Alvar");
+        return {
+          content: "Alvar",
+          finishReason: "stop",
+          generationId: "generation-123"
+        };
+      }
+    );
+    const server = await buildApplication({
+      logLevel: false,
+      memoryContextMaxTokens: 500,
+      memorySearchLimit: 3,
+      model: "example/model",
+      openRouterClient: { streamCompletion },
+      primeClient
+    });
+    servers.push(server);
+
+    await server.inject({
+      method: "POST",
+      url: "/api/chat",
+      payload: {
+        conversationId,
+        messages: [{ content: "Do you know my cat?", role: "user" }]
+      }
+    });
+
+    expect(searchMemory).toHaveBeenCalledWith("Do you know my cat?", 3);
+    const modelMessages = streamCompletion.mock.calls[0]?.[0];
+    expect(modelMessages?.[0]).toMatchObject({ role: "system" });
+    expect(modelMessages?.[0]?.content).toContain("User's cat is named Alvar.");
+    expect(modelMessages?.[0]?.content).toContain("untrusted JSON data");
+    expect(modelMessages?.[1]).toEqual({
+      content: "Do you know my cat?",
+      role: "user"
+    });
+  });
+
+  it("does not call the model when memory retrieval fails", async () => {
+    const primeClient = createPrimeClient();
+    vi.spyOn(primeClient, "searchMemory").mockRejectedValue(
+      new Error("Prime unavailable")
+    );
+    const streamCompletion = vi.fn<OpenRouterClient["streamCompletion"]>();
+    const server = await buildApplication({
+      logLevel: false,
+      model: "example/model",
+      openRouterClient: { streamCompletion },
+      primeClient
+    });
+    servers.push(server);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/chat",
+      payload: {
+        conversationId,
+        messages: [{ content: "Do you know my cat?", role: "user" }]
+      }
+    });
+
+    expect(response.body).toContain(
+      'event: interaction\ndata: {"id":"019c51d9-d7e6-7e1f-a399-ff70a508b048","persisted":true,"role":"user"}'
+    );
+    expect(response.body).toContain(
+      'event: error\ndata: {"code":"memory_retrieval_failed"}'
+    );
+    expect(streamCompletion).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /health", () => {
@@ -204,6 +296,9 @@ describe("GET /health", () => {
         },
         async checkHealth() {
           throw new Error("Prime unavailable");
+        },
+        async searchMemory() {
+          return [];
         }
       }
     });

@@ -15,6 +15,8 @@ async function start(): Promise<void> {
   });
   const server = await buildApplication({
     logLevel: configuration.LOG_LEVEL,
+    memoryContextMaxTokens: configuration.MEMORY_CONTEXT_MAX_TOKENS,
+    memorySearchLimit: configuration.MEMORY_SEARCH_LIMIT,
     model: configuration.DEFAULT_CHAT_MODEL,
     openRouterClient,
     primeClient

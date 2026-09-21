@@ -224,12 +224,19 @@ formElement.addEventListener("submit", async (event) => {
         );
       } else if (streamEvent === "error") {
         assistantMessage.persisted = data.partialPersisted === true;
-        setStatus(
-          data.partialPersisted === true
-            ? "The model stream failed; the partial response was hoarded."
-            : "The model stream failed and the response was not hoarded.",
-          true
-        );
+        if (data.code === "memory_retrieval_failed") {
+          setStatus(
+            "Your message was hoarded, but memory retrieval failed before the model was called.",
+            true
+          );
+        } else {
+          setStatus(
+            data.partialPersisted === true
+              ? "The model stream failed; the partial response was hoarded."
+              : "The model stream failed and the response was not hoarded.",
+            true
+          );
+        }
       }
 
       saveState();

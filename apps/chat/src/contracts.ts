@@ -44,3 +44,7 @@ export const chatRequestSchema = z
 
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
 export type ChatRequest = z.infer<typeof chatRequestSchema>;
+
+export type ModelMessage =
+  | ChatMessage
+  | Readonly<{ content: string; role: "system" }>;
