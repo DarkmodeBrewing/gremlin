@@ -13,12 +13,14 @@ export const principalIdSchema = z
 
 type PrincipalRow = Readonly<{
   can_consolidate: boolean;
+  can_ingest_events: boolean;
   can_ingest_interactions: boolean;
   principal_id: string;
 }>;
 
 export type AuthenticatedPrincipal = Readonly<{
   canConsolidate: boolean;
+  canIngestEvents: boolean;
   canIngestInteractions: boolean;
   id: string;
 }>;
@@ -51,7 +53,11 @@ export async function authenticatePrincipal(
   }
 
   const rows = await database<PrincipalRow[]>`
-    SELECT principal_id, can_ingest_interactions, can_consolidate
+    SELECT
+      principal_id,
+      can_ingest_interactions,
+      can_ingest_events,
+      can_consolidate
     FROM principals
     WHERE api_key_hash = ${hashApiKey(apiKey)}
       AND active = true
@@ -65,6 +71,7 @@ export async function authenticatePrincipal(
 
   return {
     canConsolidate: principal.can_consolidate,
+    canIngestEvents: principal.can_ingest_events,
     canIngestInteractions: principal.can_ingest_interactions,
     id: principal.principal_id
   };

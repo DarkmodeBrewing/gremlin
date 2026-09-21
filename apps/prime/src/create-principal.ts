@@ -3,13 +3,15 @@ import { loadConfiguration } from "./config.js";
 import { closeDatabase, createDatabase } from "./database.js";
 
 const principalIdResult = principalIdSchema.safeParse(process.argv[2]);
-const permissionOption = process.argv[3];
-const validPermissionOption =
-  permissionOption === undefined || permissionOption === "--can-consolidate";
+const permissionOptions = new Set(process.argv.slice(3));
+const validPermissionOptions = [...permissionOptions].every((option) =>
+  ["--can-consolidate", "--can-ingest-events"].includes(option)
+);
+const canConsolidate = permissionOptions.has("--can-consolidate");
 
-if (!principalIdResult.success || !validPermissionOption) {
+if (!principalIdResult.success || !validPermissionOptions) {
   process.stderr.write(
-    "Usage: pnpm principal:create <client|agent|system>:<lowercase-name> [--can-consolidate]\n"
+    "Usage: pnpm principal:create <client|agent|system>:<lowercase-name> [--can-consolidate] [--can-ingest-events]\n"
   );
   process.exitCode = 1;
 } else {
@@ -23,13 +25,15 @@ if (!principalIdResult.success || !validPermissionOption) {
         principal_id,
         api_key_hash,
         can_ingest_interactions,
+        can_ingest_events,
         can_consolidate
       )
       VALUES (
         ${principalIdResult.data},
         ${hashApiKey(apiKey)},
-        ${permissionOption === undefined},
-        ${permissionOption === "--can-consolidate"}
+        ${!canConsolidate},
+        ${permissionOptions.has("--can-ingest-events")},
+        ${canConsolidate}
       )
     `;
 
