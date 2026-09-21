@@ -57,6 +57,16 @@ M5 — Retrieval:
 - clearly delimited, untrusted memory context injection before OpenRouter
 - visible memory-retrieval failure without losing the archived user interaction
 
+M6 — MCP:
+
+- authenticated Streamable HTTP MCP endpoint at `POST /mcp`
+- session ownership bound to the authenticated principal
+- `memory.search`, `memory.get`, and authorized chronological `memory.timeline`
+- `interaction.append` using the shared append-only interaction service
+- append-only event storage with REST and MCP ingestion
+- separately authorized `event.emit`
+- identical server-side namespace filtering for REST and MCP memory access
+
 ## Run locally
 
 Requirements: Docker with Compose support.
@@ -162,6 +172,29 @@ curl --request POST http://localhost:3000/memory/search \
 Prime applies namespace authorization in the database query. An unauthorized
 memory is absent from search results, and direct retrieval conceals it with
 HTTP 404.
+
+Create a principal for an MCP client. Ordinary client and agent principals can
+append interactions; event ingestion is granted explicitly:
+
+```bash
+docker compose run --rm gremlin-prime \
+  node apps/prime/dist/create-principal.js \
+  agent:opencode --can-ingest-events
+```
+
+Grant only the memory namespaces the client requires, then configure the MCP
+client to use Streamable HTTP at `http://localhost:3000/mcp` with the generated
+key as a Bearer token. Prime exposes:
+
+- `memory.search`
+- `memory.get`
+- `memory.timeline`
+- `interaction.append`
+- `event.emit`
+
+`memory.timeline` returns authorized memories in reverse chronological order;
+it does not dereference raw evidence interactions belonging to other
+principals. MCP sessions remain bound to the principal that initialized them.
 
 ## Development
 

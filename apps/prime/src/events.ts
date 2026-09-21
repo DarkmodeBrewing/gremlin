@@ -24,37 +24,44 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   ])
 );
 
-const interactionRoleSchema = z.enum(["user", "assistant", "system", "tool"]);
-
-export const appendInteractionSchema = z
+export const emitEventSchema = z
   .object({
     content: z.string().min(1).max(100_000),
-    conversationId: z.string().uuid(),
     metadata: z.record(z.string(), jsonValueSchema).default({}),
-    role: interactionRoleSchema,
-    timestamp: z.string().datetime({ offset: true })
+    timestamp: z.string().datetime({ offset: true }),
+    type: z
+      .string()
+      .min(1)
+      .max(200)
+      .regex(/^[a-z0-9]+([.-][a-z0-9]+)*$/)
   })
   .strict();
 
-const interactionParamsSchema = z
-  .object({
-    id: z.string().uuid()
-  })
-  .strict();
+const eventParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
-type InteractionRole = z.infer<typeof interactionRoleSchema>;
-export type AppendInteractionInput = z.infer<typeof appendInteractionSchema>;
+export type EmitEventInput = z.infer<typeof emitEventSchema>;
 
-type InteractionRow = Readonly<{
+type EventRow = Readonly<{
   content: string;
-  conversation_id: string;
   created_at: Date;
   id: string;
   metadata: Record<string, JsonValue>;
   occurred_at: Date;
-  role: InteractionRole;
   source_principal: string;
+  type: string;
 }>;
+
+export type SerializedEvent = Readonly<{
+  content: string;
+  createdAt: string;
+  id: string;
+  metadata: Record<string, JsonValue>;
+  sourcePrincipal: string;
+  timestamp: string;
+  type: string;
+}>;
+
+export class InvalidEventMetadataError extends Error {}
 
 function sendUnauthorized(reply: FastifyReply): FastifyReply {
   return reply
@@ -73,95 +80,78 @@ function sendInvalidRequest(
   });
 }
 
-export type SerializedInteraction = Readonly<{
-  id: string;
-  conversationId: string;
-  timestamp: string;
-  createdAt: string;
-  sourcePrincipal: string;
-  role: InteractionRole;
-  content: string;
-  metadata: Record<string, JsonValue>;
-}>;
-
-export class InvalidInteractionMetadataError extends Error {}
-
-function serializeInteraction(interaction: InteractionRow): SerializedInteraction {
+function serializeEvent(event: EventRow): SerializedEvent {
   return {
-    id: interaction.id,
-    conversationId: interaction.conversation_id,
-    timestamp: interaction.occurred_at.toISOString(),
-    createdAt: interaction.created_at.toISOString(),
-    sourcePrincipal: interaction.source_principal,
-    role: interaction.role,
-    content: interaction.content,
-    metadata: interaction.metadata
+    id: event.id,
+    timestamp: event.occurred_at.toISOString(),
+    createdAt: event.created_at.toISOString(),
+    sourcePrincipal: event.source_principal,
+    type: event.type,
+    content: event.content,
+    metadata: event.metadata
   };
 }
 
-export async function appendInteraction(
+export async function emitEvent(
   database: Database,
   principalId: string,
-  input: AppendInteractionInput
-): Promise<SerializedInteraction> {
+  input: EmitEventInput
+): Promise<SerializedEvent> {
   const metadataIssue = validateMetadata(input.metadata);
 
   if (metadataIssue !== null) {
-    throw new InvalidInteractionMetadataError(metadataIssue);
+    throw new InvalidEventMetadataError(metadataIssue);
   }
 
-  const rows = await database<InteractionRow[]>`
-    INSERT INTO interactions (
-      conversation_id,
+  const rows = await database<EventRow[]>`
+    INSERT INTO events (
       occurred_at,
       source_principal,
-      role,
+      type,
       content,
       metadata
     )
     VALUES (
-      ${input.conversationId},
       ${new Date(input.timestamp)},
       ${principalId},
-      ${input.role},
+      ${input.type},
       ${input.content},
       ${database.json(input.metadata)}
     )
     RETURNING
       id,
-      conversation_id,
       occurred_at,
       created_at,
       source_principal,
-      role,
+      type,
       content,
       metadata
   `;
-  const interaction = rows[0];
+  const event = rows[0];
 
-  if (interaction === undefined) {
-    throw new Error("Interaction insert returned no record");
+  if (event === undefined) {
+    throw new Error("Event insert returned no record");
   }
 
-  return serializeInteraction(interaction);
+  return serializeEvent(event);
 }
 
-export function registerInteractionRoutes(
+export function registerEventRoutes(
   server: FastifyInstance,
   database: Database
 ): void {
-  server.post("/interactions", async (request, reply) => {
+  server.post("/events", async (request, reply) => {
     const principal = await authenticatePrincipal(request, database);
 
     if (principal === null) {
       return sendUnauthorized(reply);
     }
 
-    if (!principal.canIngestInteractions) {
+    if (!principal.canIngestEvents) {
       return reply.code(403).send({ error: "forbidden" });
     }
 
-    const result = appendInteractionSchema.safeParse(request.body);
+    const result = emitEventSchema.safeParse(request.body);
 
     if (!result.success) {
       return sendInvalidRequest(
@@ -171,10 +161,10 @@ export function registerInteractionRoutes(
     }
 
     try {
-      const interaction = await appendInteraction(database, principal.id, result.data);
-      return reply.code(201).send(interaction);
+      const event = await emitEvent(database, principal.id, result.data);
+      return reply.code(201).send(event);
     } catch (error: unknown) {
-      if (error instanceof InvalidInteractionMetadataError) {
+      if (error instanceof InvalidEventMetadataError) {
         return reply.code(400).send({
           error: "invalid_request",
           fields: ["metadata"],
@@ -186,14 +176,14 @@ export function registerInteractionRoutes(
     }
   });
 
-  server.get("/interactions/:id", async (request, reply) => {
+  server.get("/events/:id", async (request, reply) => {
     const principal = await authenticatePrincipal(request, database);
 
     if (principal === null) {
       return sendUnauthorized(reply);
     }
 
-    const result = interactionParamsSchema.safeParse(request.params);
+    const result = eventParamsSchema.safeParse(request.params);
 
     if (!result.success) {
       return sendInvalidRequest(
@@ -202,27 +192,26 @@ export function registerInteractionRoutes(
       );
     }
 
-    const rows = await database<InteractionRow[]>`
+    const rows = await database<EventRow[]>`
       SELECT
         id,
-        conversation_id,
         occurred_at,
         created_at,
         source_principal,
-        role,
+        type,
         content,
         metadata
-      FROM interactions
+      FROM events
       WHERE id = ${result.data.id}
         AND source_principal = ${principal.id}
       LIMIT 1
     `;
-    const interaction = rows[0];
+    const event = rows[0];
 
-    if (interaction === undefined) {
+    if (event === undefined) {
       return reply.code(404).send({ error: "not_found" });
     }
 
-    return reply.send(serializeInteraction(interaction));
+    return reply.send(serializeEvent(event));
   });
 }
