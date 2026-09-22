@@ -4,3 +4,9 @@ coverage/
 .env
 .DS_Store
 *.log
+
+# Local build/package cache
+.pnpm-store/
+
+# Production database backups
+backups/
