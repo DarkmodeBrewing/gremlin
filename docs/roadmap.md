@@ -14,7 +14,7 @@ The governing rule remains:
 
 ### M7 — Cross-client proof
 
-Status: active.
+Status: complete — production verified 2026-09-22.
 
 Connect OpenCode as a real second client and model through Gremlin's MCP
 endpoint. Prove that information introduced through Gremlin Chat can be
@@ -34,9 +34,16 @@ The proof must demonstrate:
 M7 does not add new Prime tools, event consolidation, scheduling, OAuth,
 memory mutation, or sophisticated authorization.
 
+Production acceptance proved that Gremlin Chat / DeepSeek could contribute a
+novel fact and OpenCode / Claude Sonnet could retrieve and use the resulting
+authorized memory without receiving Client A's conversation. Retrieval outside
+the OpenCode principal's namespace grants remained excluded.
+
 ## Release closure
 
 ### M8 — v0.1 audit and release
+
+Status: next.
 
 Close the specification rather than adding new product scope:
 
