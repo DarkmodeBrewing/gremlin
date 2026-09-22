@@ -205,8 +205,9 @@ describe("cross-client memory continuity", () => {
       (memory) => memory.namespace === "personal/finance"
     )?.id;
 
-    expect(authorizedMemoryId).toBeDefined();
-    expect(forbiddenMemoryId).toBeDefined();
+    if (authorizedMemoryId === undefined || forbiddenMemoryId === undefined) {
+      throw new Error("Cross-client proof memories were not persisted");
+    }
 
     const evidenceRows = await database<
       Array<{ interaction_id: string; source_principal: string }>
