@@ -8,6 +8,7 @@ import { checkDatabase, type Database } from "./database.js";
 import { registerEventRoutes } from "./events.js";
 import { registerInteractionRoutes } from "./interactions.js";
 import { registerMcpRoutes } from "./mcp.js";
+import { registerMemoryLifecycleRoutes } from "./memory-lifecycle.js";
 import { registerMemoryRetrievalRoutes } from "./memory-retrieval.js";
 import { buildServer } from "./server.js";
 
@@ -31,6 +32,7 @@ export async function buildApplication(
     database: dependencies.database,
     embeddingProvider: dependencies.consolidation.embeddingProvider
   });
+  registerMemoryLifecycleRoutes(server, dependencies.database);
   registerMcpRoutes(server, {
     database: dependencies.database,
     embeddingProvider: dependencies.consolidation.embeddingProvider

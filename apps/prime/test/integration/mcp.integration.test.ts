@@ -216,7 +216,9 @@ describe("MCP interface", () => {
       throw new Error("Consolidation run insert returned no record");
     }
 
-    const memoryRows = await database<Array<{ id: string; namespace: string }>>`
+    const memoryRows = await database<
+      Array<{ content: string; id: string; namespace: string }>
+    >`
       INSERT INTO memories (
         namespace,
         content,
@@ -237,10 +239,11 @@ describe("MCP interface", () => {
       FROM (
         VALUES
           ('projects/gremlin-prime', 'Authorized project memory', '[1,0,0]'),
+          ('projects/gremlin-prime', 'Invalidated project memory', '[1,0,0]'),
           ('projects-secret/gremlin', 'Forbidden prefix-sibling memory', '[1,0,0]'),
           ('personal/finance', 'Forbidden personal memory', '[1,0,0]')
       ) AS source(namespace, content, embedding)
-      RETURNING id, namespace
+      RETURNING id, namespace, content
     `;
     await database`
       INSERT INTO principal_memory_read_policies (
@@ -251,7 +254,7 @@ describe("MCP interface", () => {
       VALUES (${principal.id}, 'projects', true)
     `;
     const authorizedId = memoryRows.find(
-      (memory) => memory.namespace === "projects/gremlin-prime"
+      (memory) => memory.content === "Authorized project memory"
     )?.id;
     const forbiddenId = memoryRows.find(
       (memory) => memory.namespace === "personal/finance"
@@ -259,10 +262,32 @@ describe("MCP interface", () => {
     const prefixSiblingId = memoryRows.find(
       (memory) => memory.namespace === "projects-secret/gremlin"
     )?.id;
+    const invalidatedId = memoryRows.find(
+      (memory) => memory.content === "Invalidated project memory"
+    )?.id;
+
+    if (invalidatedId === undefined) {
+      throw new Error("Invalidated test memory insert returned no record");
+    }
 
     expect(authorizedId).toBeDefined();
     expect(forbiddenId).toBeDefined();
     expect(prefixSiblingId).toBeDefined();
+
+    await database`
+      INSERT INTO memory_lifecycle_events (
+        memory_id,
+        action,
+        reason,
+        requested_by
+      )
+      VALUES (
+        ${invalidatedId},
+        'invalidated',
+        'MCP retrieval must omit inactive memory.',
+        ${principal.id}
+      )
+    `;
 
     const searchResult = await client.callTool({
       name: "memory.search",
@@ -284,18 +309,32 @@ describe("MCP interface", () => {
       name: "memory.get",
       arguments: { id: prefixSiblingId }
     });
+    const invalidatedGet = await client.callTool({
+      name: "memory.get",
+      arguments: { id: invalidatedId }
+    });
 
     expect(JSON.stringify(searchResult)).toContain("Authorized project memory");
     expect(JSON.stringify(searchResult)).not.toContain("Forbidden personal memory");
     expect(JSON.stringify(searchResult)).not.toContain(
       "Forbidden prefix-sibling memory"
     );
+    expect(JSON.stringify(searchResult)).not.toContain(
+      "Invalidated project memory"
+    );
     expect(JSON.stringify(timelineResult)).toContain("Authorized project memory");
     expect(JSON.stringify(timelineResult)).not.toContain("Forbidden personal memory");
     expect(JSON.stringify(timelineResult)).not.toContain(
       "Forbidden prefix-sibling memory"
     );
+    expect(JSON.stringify(timelineResult)).not.toContain(
+      "Invalidated project memory"
+    );
     expect(authorizedGet.isError).not.toBe(true);
+    expect(invalidatedGet.isError).not.toBe(true);
+    expect(invalidatedGet.structuredContent).toMatchObject({
+      memory: { lifecycle: { status: "invalidated" } }
+    });
     expect(forbiddenGet.isError).toBe(true);
     expect(prefixSiblingGet.isError).toBe(true);
   });

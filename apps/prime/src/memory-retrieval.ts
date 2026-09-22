@@ -48,6 +48,12 @@ type MemoryDetailRow = MemoryRow &
   Readonly<{
     evidence_event_ids: readonly string[];
     evidence_interaction_ids: readonly string[];
+    lifecycle_action: "invalidated" | "superseded" | null;
+    lifecycle_created_at: Date | null;
+    lifecycle_reason: string | null;
+    lifecycle_requested_by: string | null;
+    superseding_memory_id: string | null;
+    superseding_run_id: string | null;
   }>;
 
 export type RetrievedMemory = Readonly<{
@@ -68,7 +74,19 @@ export type MemoryDetail = SerializedMemory &
   Readonly<{
     evidenceEventIds: readonly string[];
     evidenceInteractionIds: readonly string[];
+    lifecycle:
+      | Readonly<{ status: "active" }>
+      | Readonly<{
+          changedAt: string;
+          reason: string;
+          requestedBy: string;
+          status: "invalidated" | "superseded";
+          supersedingMemoryId: string | null;
+          supersedingRunId: string | null;
+        }>;
   }>;
+
+type MemoryLifecycle = MemoryDetail["lifecycle"];
 
 export type MemoryRetrievalDependencies = Readonly<{
   database: Database;
@@ -109,6 +127,29 @@ function serializeMemory(memory: MemoryRow): SerializedMemory {
     generatedBy: memory.generated_by,
     generatedAt: memory.generated_at.toISOString(),
     metadata: memory.metadata
+  };
+}
+
+function serializeMemoryLifecycle(memory: MemoryDetailRow): MemoryLifecycle {
+  if (memory.lifecycle_action === null) {
+    return { status: "active" };
+  }
+
+  if (
+    memory.lifecycle_reason === null ||
+    memory.lifecycle_requested_by === null ||
+    memory.lifecycle_created_at === null
+  ) {
+    throw new Error("Memory lifecycle record is incomplete");
+  }
+
+  return {
+    status: memory.lifecycle_action,
+    reason: memory.lifecycle_reason,
+    requestedBy: memory.lifecycle_requested_by,
+    supersedingMemoryId: memory.superseding_memory_id,
+    supersedingRunId: memory.superseding_run_id,
+    changedAt: memory.lifecycle_created_at.toISOString()
   };
 }
 
@@ -160,6 +201,11 @@ export async function searchMemories(
       1 - (m.embedding <=> ${vector}::vector) AS similarity
     FROM memories m
     WHERE m.embedding_model_id = ${embeddingModel}
+      AND NOT EXISTS (
+        SELECT 1
+        FROM memory_lifecycle_events lifecycle
+        WHERE lifecycle.memory_id = m.id
+      )
       AND EXISTS (
         SELECT 1
         FROM principal_memory_read_policies policy
@@ -208,8 +254,16 @@ export async function getMemory(
         FROM memory_event_evidence evidence
         WHERE evidence.memory_id = m.id
         ORDER BY evidence.event_id
-      ) AS evidence_event_ids
+      ) AS evidence_event_ids,
+      lifecycle.action AS lifecycle_action,
+      lifecycle.reason AS lifecycle_reason,
+      lifecycle.requested_by AS lifecycle_requested_by,
+      lifecycle.superseding_memory_id,
+      lifecycle.superseding_run_id,
+      lifecycle.created_at AS lifecycle_created_at
     FROM memories m
+    LEFT JOIN memory_lifecycle_events lifecycle
+      ON lifecycle.memory_id = m.id
     WHERE m.id = ${memoryId}
       AND EXISTS (
         SELECT 1
@@ -234,7 +288,8 @@ export async function getMemory(
   return {
     ...serializeMemory(memory),
     evidenceEventIds: memory.evidence_event_ids,
-    evidenceInteractionIds: memory.evidence_interaction_ids
+    evidenceInteractionIds: memory.evidence_interaction_ids,
+    lifecycle: serializeMemoryLifecycle(memory)
   };
 }
 
@@ -257,7 +312,12 @@ export async function getMemoryTimeline(
       m.generated_at,
       m.metadata
     FROM memories m
-    WHERE EXISTS (
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM memory_lifecycle_events lifecycle
+      WHERE lifecycle.memory_id = m.id
+    )
+      AND EXISTS (
       SELECT 1
       FROM principal_memory_read_policies policy
       WHERE policy.principal_id = ${principalId}
