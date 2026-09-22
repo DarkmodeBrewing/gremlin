@@ -237,6 +237,7 @@ describe("MCP interface", () => {
       FROM (
         VALUES
           ('projects/gremlin-prime', 'Authorized project memory', '[1,0,0]'),
+          ('projects-secret/gremlin', 'Forbidden prefix-sibling memory', '[1,0,0]'),
           ('personal/finance', 'Forbidden personal memory', '[1,0,0]')
       ) AS source(namespace, content, embedding)
       RETURNING id, namespace
@@ -255,9 +256,13 @@ describe("MCP interface", () => {
     const forbiddenId = memoryRows.find(
       (memory) => memory.namespace === "personal/finance"
     )?.id;
+    const prefixSiblingId = memoryRows.find(
+      (memory) => memory.namespace === "projects-secret/gremlin"
+    )?.id;
 
     expect(authorizedId).toBeDefined();
     expect(forbiddenId).toBeDefined();
+    expect(prefixSiblingId).toBeDefined();
 
     const searchResult = await client.callTool({
       name: "memory.search",
@@ -275,12 +280,23 @@ describe("MCP interface", () => {
       name: "memory.get",
       arguments: { id: forbiddenId }
     });
+    const prefixSiblingGet = await client.callTool({
+      name: "memory.get",
+      arguments: { id: prefixSiblingId }
+    });
 
     expect(JSON.stringify(searchResult)).toContain("Authorized project memory");
     expect(JSON.stringify(searchResult)).not.toContain("Forbidden personal memory");
+    expect(JSON.stringify(searchResult)).not.toContain(
+      "Forbidden prefix-sibling memory"
+    );
     expect(JSON.stringify(timelineResult)).toContain("Authorized project memory");
     expect(JSON.stringify(timelineResult)).not.toContain("Forbidden personal memory");
+    expect(JSON.stringify(timelineResult)).not.toContain(
+      "Forbidden prefix-sibling memory"
+    );
     expect(authorizedGet.isError).not.toBe(true);
     expect(forbiddenGet.isError).toBe(true);
+    expect(prefixSiblingGet.isError).toBe(true);
   });
 });
