@@ -13,6 +13,8 @@
     "migrate": "pnpm --filter @gremlin/prime migrate",
     "principal:create": "pnpm --filter @gremlin/prime principal:create",
     "principal:grant-memory-read": "pnpm --filter @gremlin/prime principal:grant-memory-read",
+    "principal:rotate-key": "pnpm --filter @gremlin/prime principal:rotate-key",
+    "source:export": "pnpm --filter @gremlin/prime source:export",
     "start": "pnpm --parallel --filter @gremlin/prime --filter @gremlin/chat start",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"

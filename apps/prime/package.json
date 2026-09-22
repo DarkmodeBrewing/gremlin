@@ -9,6 +9,8 @@
     "migrate": "tsx src/migrate.ts",
     "principal:create": "tsx src/create-principal.ts",
     "principal:grant-memory-read": "tsx src/grant-memory-read.ts",
+    "principal:rotate-key": "tsx src/rotate-principal-key.ts",
+    "source:export": "tsx src/export-source.ts",
     "start": "node dist/main.js",
     "test": "vitest run --exclude '**/*.integration.test.ts'",
     "test:integration": "vitest run test/integration --no-file-parallelism",

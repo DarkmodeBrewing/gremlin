@@ -212,6 +212,12 @@ describe("authorized memory retrieval", () => {
       namespace: "finance",
       requestedBy: consolidator.id
     });
+    await seedMemory({
+      content: "A prefix-sibling namespace must not match the user grant.",
+      embedding: [1, 0, 0],
+      namespace: "userland/pets",
+      requestedBy: consolidator.id
+    });
 
     const response = await server.inject({
       method: "POST",
@@ -226,6 +232,7 @@ describe("authorized memory retrieval", () => {
       expect.objectContaining({ content: "User enjoys dark beer." })
     ]);
     expect(response.body).not.toContain("finance memory");
+    expect(response.body).not.toContain("prefix-sibling namespace");
     expect(embedMany).toHaveBeenCalledWith(["Do you know my cat?"]);
   });
 
