@@ -43,7 +43,7 @@ the OpenCode principal's namespace grants remained excluded.
 
 ### M8 — v0.1 audit and release
 
-Status: active.
+Status: accepted — production verified 2026-09-22; release tag pending.
 
 Close the specification rather than adding new product scope:
 
@@ -53,6 +53,11 @@ Close the specification rather than adding new product scope:
 - verify API-key rotation and namespace-isolation failure cases
 - complete deployment and operational documentation
 - tag the accepted revision as v0.1.0
+
+Production acceptance verified canonical export and overwrite protection,
+credential rotation with immediate revocation, preserved namespace isolation,
+and a full PostgreSQL backup/restore drill with matching row counts and intact
+evidence relationships.
 
 ## v0.2 — Autonomous and maintainable memory
 
