@@ -13,6 +13,7 @@ function sourceInteraction(): SourceInteraction {
     content: "Gremlin preserves immutable history.",
     conversationId: randomUUID(),
     id: randomUUID(),
+    kind: "interaction",
     occurredAt: new Date("2026-09-17T20:00:00Z"),
     role: "user",
     sourcePrincipal: "client:gremlin-chat"
@@ -42,7 +43,7 @@ describe("OpenRouter consolidation provider", () => {
                     {
                       confidence: 0.99,
                       content: "Gremlin preserves immutable history.",
-                      evidenceInteractionIds: [source.id],
+                      evidence: [{ kind: "interaction", id: source.id }],
                       namespace: "projects/gremlin"
                     }
                   ]
@@ -66,7 +67,7 @@ describe("OpenRouter consolidation provider", () => {
       {
         confidence: 0.99,
         content: "Gremlin preserves immutable history.",
-        evidenceInteractionIds: [source.id],
+        evidence: [{ kind: "interaction", id: source.id }],
         namespace: "projects/gremlin"
       }
     ]);
@@ -115,7 +116,7 @@ describe("OpenRouter consolidation provider", () => {
                       {
                         confidence: 0.9,
                         content: "Invalid namespace",
-                        evidenceInteractionIds: [source.id],
+                        evidence: [{ kind: "interaction", id: source.id }],
                         namespace: `0-0${"-0".repeat(2_000)}`
                       }
                     ]

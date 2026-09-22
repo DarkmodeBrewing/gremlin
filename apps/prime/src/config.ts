@@ -13,7 +13,12 @@ const configurationSchema = z.object({
 export type Configuration = z.infer<typeof configurationSchema>;
 
 const consolidationConfigurationSchema = z.object({
+  BACKGROUND_CONSOLIDATION_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   CONSOLIDATION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(20),
+  CONSOLIDATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
   CONSOLIDATION_MAX_SOURCE_CHARACTERS: z.coerce
     .number()
     .int()
@@ -21,7 +26,24 @@ const consolidationConfigurationSchema = z.object({
     .max(2_000_000)
     .default(200_000),
   CONSOLIDATION_MODEL: z.string().min(1).max(200),
+  CONSOLIDATION_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1_000)
+    .max(86_400_000)
+    .default(60_000),
+  CONSOLIDATION_PRINCIPAL_ID: z
+    .string()
+    .min(1)
+    .max(200)
+    .default("system:consolidator"),
   CONSOLIDATION_PROVIDER: z.literal("openrouter").default("openrouter"),
+  CONSOLIDATION_RETRY_DELAY_MS: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(86_400_000)
+    .default(300_000),
   EMBEDDING_MODEL: z.string().min(1).max(200),
   EMBEDDING_PROVIDER: z.literal("openrouter").default("openrouter"),
   MODEL_REQUEST_TIMEOUT_MS: z.coerce

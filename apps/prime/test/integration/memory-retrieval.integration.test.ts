@@ -185,6 +185,21 @@ describe("authorized memory retrieval", () => {
         INSERT INTO memory_evidence (memory_id, interaction_id)
         VALUES (${memoryId}, ${interactionId})
       `;
+      const eventRows = await database<Array<{ id: string }>>`
+        INSERT INTO events (occurred_at, source_principal, type, content)
+        VALUES (now(), ${options.sourcePrincipal}, 'test.observed', 'Event evidence')
+        RETURNING id
+      `;
+      const eventId = eventRows[0]?.id;
+
+      if (eventId === undefined) {
+        throw new Error("Missing event");
+      }
+
+      await database`
+        INSERT INTO memory_event_evidence (memory_id, event_id)
+        VALUES (${memoryId}, ${eventId})
+      `;
     }
 
     return memoryId;
@@ -271,6 +286,8 @@ describe("authorized memory retrieval", () => {
       namespace: "user/pets"
     });
     expect(allowed.json<{ evidenceInteractionIds: string[] }>().evidenceInteractionIds)
+      .toHaveLength(1);
+    expect(allowed.json<{ evidenceEventIds: string[] }>().evidenceEventIds)
       .toHaveLength(1);
     expect(forbidden.statusCode).toBe(404);
     expect(forbidden.body).not.toContain("finance");

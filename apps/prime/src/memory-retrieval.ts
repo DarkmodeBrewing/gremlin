@@ -45,7 +45,10 @@ type MemoryRow = Readonly<{
 type SearchMemoryRow = MemoryRow & Readonly<{ similarity: number }>;
 
 type MemoryDetailRow = MemoryRow &
-  Readonly<{ evidence_interaction_ids: readonly string[] }>;
+  Readonly<{
+    evidence_event_ids: readonly string[];
+    evidence_interaction_ids: readonly string[];
+  }>;
 
 export type RetrievedMemory = Readonly<{
   confidence: number;
@@ -62,7 +65,10 @@ export type RetrievedMemory = Readonly<{
 type SerializedMemory = Omit<RetrievedMemory, "similarity">;
 
 export type MemoryDetail = SerializedMemory &
-  Readonly<{ evidenceInteractionIds: readonly string[] }>;
+  Readonly<{
+    evidenceEventIds: readonly string[];
+    evidenceInteractionIds: readonly string[];
+  }>;
 
 export type MemoryRetrievalDependencies = Readonly<{
   database: Database;
@@ -196,7 +202,13 @@ export async function getMemory(
         FROM memory_evidence evidence
         WHERE evidence.memory_id = m.id
         ORDER BY evidence.interaction_id
-      ) AS evidence_interaction_ids
+      ) AS evidence_interaction_ids,
+      ARRAY(
+        SELECT evidence.event_id::text
+        FROM memory_event_evidence evidence
+        WHERE evidence.memory_id = m.id
+        ORDER BY evidence.event_id
+      ) AS evidence_event_ids
     FROM memories m
     WHERE m.id = ${memoryId}
       AND EXISTS (
@@ -221,6 +233,7 @@ export async function getMemory(
 
   return {
     ...serializeMemory(memory),
+    evidenceEventIds: memory.evidence_event_ids,
     evidenceInteractionIds: memory.evidence_interaction_ids
   };
 }

@@ -8,8 +8,8 @@ import { buildApplication } from "../../src/application.js";
 import { createApiKey, hashApiKey } from "../../src/auth.js";
 import type {
   CandidateMemory,
+  ConsolidationSource,
   ConsolidationProvider,
-  SourceInteraction
 } from "../../src/consolidation-provider.js";
 import type { EmbeddingProvider } from "../../src/embedding-provider.js";
 
@@ -28,7 +28,7 @@ describe("manual consolidation", () => {
   let database: Sql;
   let server: FastifyInstance;
   let candidateFactory: (
-    interactions: readonly SourceInteraction[]
+    interactions: readonly ConsolidationSource[]
   ) => readonly CandidateMemory[];
   const consolidate = vi.fn<ConsolidationProvider["consolidate"]>();
   const embedMany = vi.fn<EmbeddingProvider["embedMany"]>();
@@ -70,7 +70,10 @@ describe("manual consolidation", () => {
       {
         confidence: 0.98,
         content: "Gremlin's canonical interaction history is immutable.",
-        evidenceInteractionIds: interactions.map((interaction) => interaction.id),
+        evidence: interactions.map((interaction) => ({
+          kind: interaction.kind,
+          id: interaction.id
+        })),
         namespace: "projects/gremlin"
       }
     ];
@@ -206,10 +209,28 @@ describe("manual consolidation", () => {
       embedding: "[0.1,0.2,0.3]",
       namespace: "projects/gremlin"
     });
-    expect(memoryRows[0]?.generated_by).toContain("gremlin-consolidator-v1");
+    expect(memoryRows[0]?.generated_by).toContain("gremlin-consolidator-v2");
     expect(memoryRows[0]?.evidence_ids).toEqual(
       [userInteractionId, assistantInteractionId].sort()
     );
+
+    const runsResponse = await server.inject({
+      method: "GET",
+      url: "/admin/consolidation/runs?limit=1",
+      headers: { authorization: `Bearer ${consolidator.apiKey}` }
+    });
+    expect(runsResponse.statusCode).toBe(200);
+    expect(runsResponse.json()).toMatchObject({
+      runs: [
+        {
+          errorCode: null,
+          memoryCount: 1,
+          sourceCount: 2,
+          status: "succeeded",
+          triggerKind: "manual"
+        }
+      ]
+    });
 
     const emptyResponse = await server.inject({
       method: "POST",
@@ -265,7 +286,7 @@ describe("manual consolidation", () => {
       {
         confidence: 0.8,
         content: "Invalid candidate",
-        evidenceInteractionIds: [randomUUID()],
+        evidence: [{ kind: "interaction", id: randomUUID() }],
         namespace: "projects/gremlin"
       }
     ];
@@ -302,7 +323,7 @@ describe("manual consolidation", () => {
       {
         confidence: 0.9,
         content: "The failed source was retried safely.",
-        evidenceInteractionIds: [interactionId],
+        evidence: [{ kind: "interaction", id: interactionId }],
         namespace: "projects/gremlin"
       }
     ];

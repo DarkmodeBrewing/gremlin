@@ -77,6 +77,20 @@ M7 — Cross-client proof:
 - production verification that authorized memory is returned and forbidden memory is excluded
 - post-v0.1 direction recorded in [docs/roadmap.md](docs/roadmap.md)
 
+M8 — v0.1 release closure:
+
+- canonical JSONL source export with overwrite protection
+- principal API-key rotation with immediate old-key revocation
+- production backup and independent restore procedure
+- accepted and tagged `v0.1.0 — The Hoarder`
+
+M9 — Background consolidation:
+
+- opt-in in-process worker without a separate queue or scheduler service
+- chronological interaction and event batches with typed evidence
+- bounded automatic retries, visible failures, and interrupted-run recovery
+- authorized run inspection while retaining the manual trigger
+
 ## Run locally
 
 Requirements: Docker with Compose support.
@@ -154,6 +168,24 @@ curl --request POST http://localhost:3000/admin/consolidate \
   --header "Content-Type: application/json" \
   --data '{}'
 ```
+
+For automatic consolidation, keep the same active `system:consolidator`
+principal with `can_consolidate`, then set:
+
+```dotenv
+BACKGROUND_CONSOLIDATION_ENABLED=true
+CONSOLIDATION_PRINCIPAL_ID=system:consolidator
+CONSOLIDATION_POLL_INTERVAL_MS=60000
+CONSOLIDATION_RETRY_DELAY_MS=300000
+CONSOLIDATION_MAX_ATTEMPTS=3
+```
+
+Prime recovers interrupted runs at startup. The in-process worker schedules its
+next poll only after the current poll completes, records no run when the queue
+is empty, and stops automatically retrying a source after the configured
+attempt limit. An authorized operator can inspect recent work with
+`GET /admin/consolidation/runs?limit=20` and can still use the manual endpoint
+to retry a source deliberately.
 
 A successful response reports the run ID and source/memory counts. Provider,
 embedding, validation, or persistence failure returns a visible failed run
