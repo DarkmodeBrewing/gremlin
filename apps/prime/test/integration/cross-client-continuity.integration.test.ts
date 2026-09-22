@@ -51,7 +51,7 @@ describe("cross-client memory continuity", () => {
                 content: isProjectFact
                   ? "Project Sable uses violet deployments because they are reversible."
                   : "The private budget marker is seven.",
-                evidenceInteractionIds: [interaction.id],
+                evidence: [{ kind: interaction.kind, id: interaction.id }],
                 namespace: isProjectFact
                   ? "projects/gremlin"
                   : "personal/finance"

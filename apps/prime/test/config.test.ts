@@ -43,12 +43,28 @@ describe("loadConsolidationConfiguration", () => {
     });
 
     expect(configuration).toMatchObject({
+      BACKGROUND_CONSOLIDATION_ENABLED: false,
       CONSOLIDATION_BATCH_SIZE: 20,
+      CONSOLIDATION_MAX_ATTEMPTS: 3,
       CONSOLIDATION_MAX_SOURCE_CHARACTERS: 200_000,
+      CONSOLIDATION_POLL_INTERVAL_MS: 60_000,
+      CONSOLIDATION_PRINCIPAL_ID: "system:consolidator",
       CONSOLIDATION_PROVIDER: "openrouter",
+      CONSOLIDATION_RETRY_DELAY_MS: 300_000,
       EMBEDDING_PROVIDER: "openrouter",
       MODEL_REQUEST_TIMEOUT_MS: 60_000
     });
+  });
+
+  it("parses the background worker switch explicitly", () => {
+    const configuration = loadConsolidationConfiguration({
+      BACKGROUND_CONSOLIDATION_ENABLED: "true",
+      CONSOLIDATION_MODEL: "example/consolidator",
+      EMBEDDING_MODEL: "example/embedding",
+      OPENROUTER_API_KEY: "openrouter-test-key"
+    });
+
+    expect(configuration.BACKGROUND_CONSOLIDATION_ENABLED).toBe(true);
   });
 
   it("reports missing secret fields without printing secret values", () => {

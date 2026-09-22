@@ -43,7 +43,7 @@ the OpenCode principal's namespace grants remained excluded.
 
 ### M8 — v0.1 audit and release
 
-Status: accepted — production verified 2026-09-22; release tag pending.
+Status: complete — production verified 2026-09-22 and tagged v0.1.0.
 
 Close the specification rather than adding new product scope:
 
@@ -62,6 +62,8 @@ evidence relationships.
 ## v0.2 — Autonomous and maintainable memory
 
 ### M9 — Background consolidation
+
+Status: implementation in progress on `feat/m9-background-consolidation`.
 
 - execute consolidation without a manual HTTP request
 - process both interactions and events
