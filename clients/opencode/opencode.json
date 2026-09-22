@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "mcp": {
+    "gremlin": {
+      "type": "remote",
+      "url": "{env:GREMLIN_MCP_URL}",
+      "enabled": true,
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {env:GREMLIN_MCP_API_KEY}"
+      },
+      "timeout": 10000
+    }
+  },
+  "permission": {
+    "gremlin_*": "ask"
+  }
+}

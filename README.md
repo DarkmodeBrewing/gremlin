@@ -67,6 +67,16 @@ M6 — MCP:
 - separately authorized `event.emit`
 - identical server-side namespace filtering for REST and MCP memory access
 
+M7 — Cross-client proof:
+
+- checked-in OpenCode remote-MCP configuration with externalized credentials
+- read-only `/gremlin-recall` proof command
+- vertical PostgreSQL coverage from Client A ingestion through Client B MCP retrieval
+- production proof using Gremlin Chat / DeepSeek and OpenCode / Claude Sonnet
+- successful recall without sharing Client A's conversation history
+- production verification that authorized memory is returned and forbidden memory is excluded
+- post-v0.1 direction recorded in [docs/roadmap.md](docs/roadmap.md)
+
 ## Run locally
 
 Requirements: Docker with Compose support.
