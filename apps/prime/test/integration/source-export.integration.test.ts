@@ -68,13 +68,13 @@ describe("canonical source export", () => {
       )
       SELECT
         uuidv7(),
-        '2026-09-22T08:00:00Z'::timestamptz + source.offset * interval '1 second',
-        '2026-09-22T09:00:00Z'::timestamptz + source.offset * interval '1 millisecond',
+        '2026-09-22T08:00:00Z'::timestamptz + source.sequence_number * interval '1 second',
+        '2026-09-22T09:00:00Z'::timestamptz + source.sequence_number * interval '1 millisecond',
         ${principalId},
-        CASE WHEN source.offset % 2 = 0 THEN 'user' ELSE 'assistant' END,
-        'canonical interaction ' || source.offset,
-        jsonb_build_object('sequence', source.offset)
-      FROM generate_series(0, 500) AS source(offset)
+        CASE WHEN source.sequence_number % 2 = 0 THEN 'user' ELSE 'assistant' END,
+        'canonical interaction ' || source.sequence_number,
+        jsonb_build_object('sequence', source.sequence_number)
+      FROM generate_series(0, 500) AS source(sequence_number)
     `;
 
     await database`
