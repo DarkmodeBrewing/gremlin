@@ -206,6 +206,36 @@ key as a Bearer token. Prime exposes:
 it does not dereference raw evidence interactions belonging to other
 principals. MCP sessions remain bound to the principal that initialized them.
 
+## Operations
+
+Export canonical interactions and events into a new directory containing
+`interactions.jsonl` and `events.jsonl`:
+
+```bash
+DATABASE_URL=postgres://gremlin:password@localhost:5432/gremlin \
+  pnpm source:export ./exports/gremlin-source-$(date -u +%Y%m%dT%H%M%SZ)
+```
+
+The export uses one repeatable-read snapshot, preserves source IDs and
+provenance, writes files with owner-only permissions, and refuses to overwrite
+an existing directory. It intentionally excludes derived memories.
+
+Rotate an active principal's API key:
+
+```bash
+DATABASE_URL=postgres://gremlin:password@localhost:5432/gremlin \
+  pnpm principal:rotate-key agent:opencode
+```
+
+The replacement is printed once. The old key becomes invalid immediately, so
+update the client's secret before reconnecting. Prime stores only the new
+SHA-256 hash.
+
+The complete production procedures for containerized export, credential
+rotation, PostgreSQL backup/restore, integrity checks, and v0.1 release
+acceptance are in
+[docs/runbooks/M8-release-closure.md](docs/runbooks/M8-release-closure.md).
+
 ## Development
 
 Requirements: Node.js 24+ and pnpm 11.

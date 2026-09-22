@@ -43,7 +43,7 @@ the OpenCode principal's namespace grants remained excluded.
 
 ### M8 — v0.1 audit and release
 
-Status: next.
+Status: active.
 
 Close the specification rather than adding new product scope:
 
