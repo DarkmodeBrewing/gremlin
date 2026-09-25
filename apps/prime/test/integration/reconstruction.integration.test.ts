@@ -17,6 +17,9 @@ describe("selective reconstruction", () => {
   let principalKey: string;
   let candidates: (sources: readonly ConsolidationSource[]) => readonly CandidateMemory[];
   const consolidate = vi.fn(async (sources: readonly ConsolidationSource[]) => candidates(sources));
+  const embedMany = vi.fn(async (texts: readonly string[]) => ({
+    model: "test", embeddings: texts.map(() => [1, 0, 0])
+  }));
 
   beforeAll(async () => {
     database = postgres(databaseUrl, { max: 5 });
@@ -29,7 +32,7 @@ describe("selective reconstruction", () => {
         provider: { name: "test", model: "test", consolidate },
         embeddingProvider: {
           name: "test", configuredModel: "test",
-          embedMany: async (texts) => ({ model: "test", embeddings: texts.map(() => [1, 0, 0]) })
+          embedMany
         },
         rateLimit: { maximum: 100, windowMilliseconds: 60_000 }
       }
@@ -46,6 +49,9 @@ describe("selective reconstruction", () => {
       evidence: sources.map((source) => ({ kind: source.kind, id: source.id }))
     }];
     vi.clearAllMocks();
+    embedMany.mockImplementation(async (texts) => ({
+      model: "test", embeddings: texts.map(() => [1, 0, 0])
+    }));
   });
 
   afterAll(async () => {
@@ -125,11 +131,55 @@ describe("selective reconstruction", () => {
     expect(await database`SELECT id FROM memory_lifecycle_events`).toHaveLength(0);
   });
 
+  it("keeps active memories when embedding or persistence fails", async () => {
+    const ids = await sources();
+    await request("/admin/consolidate", {});
+    candidates = (batch) => [{
+      namespace: "projects/gremlin", content: "Replacement", confidence: 0.95,
+      evidence: batch.map((source) => ({ kind: source.kind, id: source.id }))
+    }];
+    embedMany.mockRejectedValueOnce(new Error("embedding unavailable"));
+    const embeddingFailure = await request("/admin/reconstruct", { sources: refs(ids) });
+    expect(embeddingFailure.statusCode).toBe(502);
+    expect(await database`SELECT id FROM memory_lifecycle_events`).toHaveLength(0);
+
+    await database`UPDATE embedding_models SET dimensions = 4 WHERE model_id = 'test'`;
+    const persistenceFailure = await request("/admin/reconstruct", { sources: refs(ids) });
+    expect(persistenceFailure.statusCode).toBe(500);
+    expect(await database`SELECT id FROM memory_lifecycle_events`).toHaveLength(0);
+    expect(await database`SELECT id FROM memories`).toHaveLength(1);
+    const runs = await database<Array<{ status: string; error_code: string }>>`
+      SELECT status, error_code FROM consolidation_runs WHERE id IN (${embeddingFailure.json().runId}, ${persistenceFailure.json().runId})`;
+    expect(runs.map((run) => run.status)).toEqual(["failed", "failed"]);
+    expect(runs.map((run) => run.error_code).sort()).toEqual(["embedding_failure", "persistence_failure"]);
+  });
+
+  it("rejects a concurrent claim of a processing source", async () => {
+    const ids = await sources();
+    await request("/admin/consolidate", {});
+    let signalStarted!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    let release!: (memories: readonly CandidateMemory[]) => void;
+    const blocked = new Promise<readonly CandidateMemory[]>((resolve) => { release = resolve; });
+    consolidate.mockImplementationOnce(async () => {
+      signalStarted();
+      return blocked;
+    });
+    const first = request("/admin/reconstruct", { sources: refs(ids) });
+    await started;
+    const second = await request("/admin/reconstruct", { sources: refs(ids) });
+    expect(second.statusCode).toBe(409);
+    release([]);
+    expect((await first).statusCode).toBe(200);
+    expect(await database`SELECT id FROM memory_lifecycle_events`).toHaveLength(0);
+  });
+
   it("rejects missing, duplicate, and unauthorized source requests", async () => {
     const ids = await sources();
     const otherKey = createApiKey();
     await database`INSERT INTO principals (principal_id, api_key_hash)
       VALUES ('client:ordinary', ${hashApiKey(otherKey)})`;
+    expect((await server.inject({ method: "POST", url: "/admin/reconstruct", payload: { sources: refs(ids) } })).statusCode).toBe(401);
     expect((await request("/admin/reconstruct", { sources: refs(ids) }, otherKey)).statusCode).toBe(403);
     expect((await request("/admin/reconstruct", { sources: [refs(ids)[0], refs(ids)[0]] })).statusCode).toBe(400);
     expect((await request("/admin/reconstruct", { sources: [{ kind: "event", id: randomUUID() }] })).statusCode).toBe(409);
