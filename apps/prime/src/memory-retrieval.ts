@@ -192,7 +192,9 @@ export async function searchMemories(
     let embeddingModel: string;
     let vector: string;
     try {
-      const batch = await dependencies.embeddingProvider.embedMany([query], pinnedModel ?? undefined);
+      const batch = pinnedModel === null
+        ? await dependencies.embeddingProvider.embedMany([query])
+        : await dependencies.embeddingProvider.embedMany([query], pinnedModel);
       embeddingModel = pinnedModel ?? batch.model;
       vector = JSON.stringify(validateQueryEmbedding(batch.embeddings));
     } catch {
