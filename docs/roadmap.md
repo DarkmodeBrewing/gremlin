@@ -74,7 +74,8 @@ Status: complete — production verified 2026-09-22.
 
 ### M10 — Memory lifecycle and reconstruction
 
-Status: Part 1 production verified 2026-09-25; PR #11 pending merge. Part 2 is next.
+Status: Part 1 production verified 2026-09-25 and merged. Part 2 is in progress
+on `feat/m10-selective-reconstruction`.
 
 M10 is delivered in three ordered parts:
 
