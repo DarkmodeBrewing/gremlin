@@ -74,7 +74,7 @@ Status: complete — production verified 2026-09-22.
 
 ### M10 — Memory lifecycle and reconstruction
 
-Status: Part 1 implementation in progress on `feat/m10-memory-lifecycle`.
+Status: Part 1 production verified 2026-09-25; PR #11 pending merge. Part 2 is next.
 
 M10 is delivered in three ordered parts:
 
@@ -87,6 +87,12 @@ M10 is delivered in three ordered parts:
 3. **Full reconstruction and embedding regeneration** — rebuild derived memory
    from canonical history into staged state, activate it safely, and regenerate
    embeddings when the configured model changes.
+
+Part 1 production acceptance verified capability-gated invalidation, active-only
+REST and MCP search plus MCP timeline, preserved authorized historical inspection,
+a single append-only lifecycle event, repeat-invalidation conflict, and intact
+memory, canonical interaction, and evidence rows. See [M10 handoff](handoffs/M10.md)
+for the acceptance record.
 
 Across all three parts, Gremlin must preserve evidence, generator provenance,
 canonical source history, and server-side authorization. M10 deliberately does
