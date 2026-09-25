@@ -63,7 +63,7 @@ evidence relationships.
 
 ### M9 — Background consolidation
 
-Status: implementation in progress on `feat/m9-background-consolidation`.
+Status: complete — production verified 2026-09-22.
 
 - execute consolidation without a manual HTTP request
 - process both interactions and events
@@ -74,15 +74,34 @@ Status: implementation in progress on `feat/m9-background-consolidation`.
 
 ### M10 — Memory lifecycle and reconstruction
 
-- invalidate or supersede obsolete derived memories
-- reconsolidate selected canonical sources
-- rebuild derived memory from raw history
-- regenerate embeddings when the embedding model changes
-- preserve evidence and generator provenance throughout rebuilds
-- expose enough inspection to explain why a memory exists
-- address straightforward duplication without building a temporal belief engine
+Status: Part 1 production verified 2026-09-25; PR #11 pending merge. Part 2 is next.
 
-M8 through M10 are the currently committed post-M7 sequence.
+M10 is delivered in three ordered parts:
+
+1. **Lifecycle and active-memory filtering** — record append-only invalidation
+   and supersession state, exclude inactive memory from ordinary retrieval, and
+   retain authorized historical inspection.
+2. **Selective reconstruction** — reconsolidate explicitly selected canonical
+   interactions and events, supersede affected active memories only after a
+   successful replacement run, and suppress exact duplicates.
+3. **Full reconstruction and embedding regeneration** — rebuild derived memory
+   from canonical history into staged state, activate it safely, and regenerate
+   embeddings when the configured model changes.
+
+Part 1 production acceptance verified capability-gated invalidation, active-only
+REST and MCP search plus MCP timeline, preserved authorized historical inspection,
+a single append-only lifecycle event, repeat-invalidation conflict, and intact
+memory, canonical interaction, and evidence rows. See [M10 handoff](handoffs/M10.md)
+for the acceptance record.
+
+Across all three parts, Gremlin must preserve evidence, generator provenance,
+canonical source history, and server-side authorization. M10 deliberately does
+not introduce semantic contradiction resolution or a temporal belief engine.
+
+Production acceptance of all three parts closes the v0.2 functional scope.
+The accepted merge revision can then be tagged v0.2.0.
+
+M9 and M10 are the committed v0.2 sequence.
 
 ## Directional stages
 

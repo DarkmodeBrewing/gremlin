@@ -7,6 +7,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { buildApplication } from "../../src/application.js";
 import { createApiKey, hashApiKey } from "../../src/auth.js";
 import type { EmbeddingProvider } from "../../src/embedding-provider.js";
+import { getMemoryTimeline } from "../../src/memory-retrieval.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -67,12 +68,19 @@ describe("authorized memory retrieval", () => {
     await database.end({ timeout: 5 });
   });
 
-  async function registerPrincipal(id: string): Promise<RegisteredPrincipal> {
+  async function registerPrincipal(
+    id: string,
+    permissions: Readonly<{ canConsolidate?: boolean }> = {}
+  ): Promise<RegisteredPrincipal> {
     const apiKey = createApiKey();
 
     await database`
-      INSERT INTO principals (principal_id, api_key_hash)
-      VALUES (${id}, ${hashApiKey(apiKey)})
+      INSERT INTO principals (principal_id, api_key_hash, can_consolidate)
+      VALUES (
+        ${id},
+        ${hashApiKey(apiKey)},
+        ${permissions.canConsolidate ?? false}
+      )
     `;
 
     return { apiKey, id };
@@ -283,6 +291,7 @@ describe("authorized memory retrieval", () => {
     expect(allowed.statusCode).toBe(200);
     expect(allowed.json()).toMatchObject({
       content: "User's cat is named Alvar.",
+      lifecycle: { status: "active" },
       namespace: "user/pets"
     });
     expect(allowed.json<{ evidenceInteractionIds: string[] }>().evidenceInteractionIds)
@@ -291,6 +300,125 @@ describe("authorized memory retrieval", () => {
       .toHaveLength(1);
     expect(forbidden.statusCode).toBe(404);
     expect(forbidden.body).not.toContain("finance");
+  });
+
+  it("invalidates memory append-only and excludes it from ordinary retrieval", async () => {
+    const reader = await registerPrincipal("client:gremlin-chat");
+    const consolidator = await registerPrincipal("system:consolidator", {
+      canConsolidate: true
+    });
+    await grantRead(reader.id, "user", true);
+    const invalidatedId = await seedMemory({
+      content: "The obsolete memory must leave ordinary recall.",
+      embedding: [1, 0, 0],
+      namespace: "user/preferences",
+      requestedBy: consolidator.id,
+      sourcePrincipal: reader.id
+    });
+    const activeId = await seedMemory({
+      content: "The active memory remains available.",
+      embedding: [1, 0, 0],
+      namespace: "user/preferences",
+      requestedBy: consolidator.id
+    });
+
+    const forbidden = await server.inject({
+      method: "POST",
+      url: `/admin/memories/${invalidatedId}/invalidate`,
+      headers: { authorization: `Bearer ${reader.apiKey}` },
+      payload: { reason: "Reader principals cannot change lifecycle state." }
+    });
+    expect(forbidden.statusCode).toBe(403);
+
+    const invalidated = await server.inject({
+      method: "POST",
+      url: `/admin/memories/${invalidatedId}/invalidate`,
+      headers: { authorization: `Bearer ${consolidator.apiKey}` },
+      payload: { reason: "Corrected by newer canonical evidence." }
+    });
+    expect(invalidated.statusCode).toBe(201);
+    expect(invalidated.json()).toMatchObject({
+      lifecycle: {
+        action: "invalidated",
+        memoryId: invalidatedId,
+        reason: "Corrected by newer canonical evidence.",
+        requestedBy: consolidator.id,
+        supersedingMemoryId: null,
+        supersedingRunId: null
+      }
+    });
+
+    const search = await server.inject({
+      method: "POST",
+      url: "/memory/search",
+      headers: { authorization: `Bearer ${reader.apiKey}` },
+      payload: { limit: 5, query: "Which memory remains?" }
+    });
+    expect(search.statusCode).toBe(200);
+    expect(search.json<{ memories: Array<{ id: string }> }>().memories).toEqual([
+      expect.objectContaining({ id: activeId })
+    ]);
+
+    const timeline = await getMemoryTimeline(database, reader.id, {
+      includeDescendants: true,
+      limit: 20,
+      namespace: "user"
+    });
+    expect(timeline.map((memory) => memory.id)).toEqual([activeId]);
+
+    const historicalDetail = await server.inject({
+      method: "GET",
+      url: `/memory/${invalidatedId}`,
+      headers: { authorization: `Bearer ${reader.apiKey}` }
+    });
+    expect(historicalDetail.statusCode).toBe(200);
+    expect(historicalDetail.json()).toMatchObject({
+      id: invalidatedId,
+      lifecycle: {
+        status: "invalidated",
+        reason: "Corrected by newer canonical evidence.",
+        requestedBy: consolidator.id,
+        supersedingMemoryId: null,
+        supersedingRunId: null
+      }
+    });
+    expect(
+      historicalDetail.json<{ evidenceInteractionIds: string[] }>()
+        .evidenceInteractionIds
+    ).toHaveLength(1);
+    expect(
+      historicalDetail.json<{ evidenceEventIds: string[] }>().evidenceEventIds
+    ).toHaveLength(1);
+
+    const repeated = await server.inject({
+      method: "POST",
+      url: `/admin/memories/${invalidatedId}/invalidate`,
+      headers: { authorization: `Bearer ${consolidator.apiKey}` },
+      payload: { reason: "A second terminal transition must not be appended." }
+    });
+    expect(repeated.statusCode).toBe(409);
+    expect(repeated.json()).toEqual({ error: "memory_not_active" });
+
+    const counts = await database<
+      Array<{
+        event_evidence_count: number;
+        interaction_evidence_count: number;
+        lifecycle_count: number;
+        memory_count: number;
+      }>
+    >`
+      SELECT
+        (SELECT count(*)::int FROM memories) AS memory_count,
+        (SELECT count(*)::int FROM memory_lifecycle_events) AS lifecycle_count,
+        (SELECT count(*)::int FROM memory_evidence) AS interaction_evidence_count,
+        (SELECT count(*)::int FROM memory_event_evidence) AS event_evidence_count
+    `;
+    expect(counts[0]).toEqual({
+      event_evidence_count: 1,
+      interaction_evidence_count: 1,
+      lifecycle_count: 1,
+      memory_count: 2
+    });
   });
 
   it("distinguishes embedding failure from an empty authorized result", async () => {

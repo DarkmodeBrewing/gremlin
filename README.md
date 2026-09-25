@@ -91,6 +91,13 @@ M9 — Background consolidation:
 - bounded automatic retries, visible failures, and interrupted-run recovery
 - authorized run inspection while retaining the manual trigger
 
+M10 Part 1 — Memory lifecycle:
+
+- append-only invalidation and supersession audit records
+- separately authorized administrative memory invalidation
+- active-only semantic search and timeline retrieval
+- authorized historical memory inspection with lifecycle provenance
+
 ## Run locally
 
 Requirements: Docker with Compose support.
