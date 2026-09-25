@@ -54,6 +54,8 @@ type MemoryDetailRow = MemoryRow &
     lifecycle_requested_by: string | null;
     superseding_memory_id: string | null;
     superseding_run_id: string | null;
+    rebuild_id: string | null;
+    rebuild_status: "processing" | "succeeded" | "failed" | null;
   }>;
 
 export type RetrievedMemory = Readonly<{
@@ -76,6 +78,7 @@ export type MemoryDetail = SerializedMemory &
     evidenceInteractionIds: readonly string[];
     lifecycle:
       | Readonly<{ status: "active" }>
+      | Readonly<{ status: "staged" | "failed_rebuild"; rebuildId: string }>
       | Readonly<{
           changedAt: string;
           reason: string;
@@ -131,6 +134,12 @@ function serializeMemory(memory: MemoryRow): SerializedMemory {
 }
 
 function serializeMemoryLifecycle(memory: MemoryDetailRow): MemoryLifecycle {
+  if (memory.rebuild_id !== null && memory.rebuild_status !== "succeeded") {
+    return {
+      status: memory.rebuild_status === "failed" ? "failed_rebuild" : "staged",
+      rebuildId: memory.rebuild_id
+    };
+  }
   if (memory.lifecycle_action === null) {
     return { status: "active" };
   }
@@ -176,19 +185,20 @@ export async function searchMemories(
   query: string,
   limit: number
 ): Promise<readonly RetrievedMemory[]> {
-  let embeddingModel: string;
-  let queryEmbedding: readonly number[];
-
-  try {
-    const embeddingBatch = await dependencies.embeddingProvider.embedMany([query]);
-    embeddingModel = embeddingBatch.model;
-    queryEmbedding = validateQueryEmbedding(embeddingBatch.embeddings);
-  } catch {
-    throw new MemoryEmbeddingError();
-  }
-
-  const vector = JSON.stringify(queryEmbedding);
-  const rows = await dependencies.database<SearchMemoryRow[]>`
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const state = await dependencies.database<Array<{ active_model_id: string | null }>>`
+      SELECT active_model_id FROM memory_embedding_state WHERE singleton = true`;
+    const pinnedModel = state[0]?.active_model_id ?? null;
+    let embeddingModel: string;
+    let vector: string;
+    try {
+      const batch = await dependencies.embeddingProvider.embedMany([query], pinnedModel ?? undefined);
+      embeddingModel = pinnedModel ?? batch.model;
+      vector = JSON.stringify(validateQueryEmbedding(batch.embeddings));
+    } catch {
+      throw new MemoryEmbeddingError();
+    }
+    const rows = await dependencies.database<SearchMemoryRow[]>`
     SELECT
       m.id,
       m.namespace,
@@ -201,6 +211,10 @@ export async function searchMemories(
       1 - (m.embedding <=> ${vector}::vector) AS similarity
     FROM memories m
     WHERE m.embedding_model_id = ${embeddingModel}
+      AND (m.rebuild_id IS NULL OR EXISTS (
+        SELECT 1 FROM memory_rebuilds rebuild
+        WHERE rebuild.id = m.rebuild_id AND rebuild.status = 'succeeded'
+      ))
       AND NOT EXISTS (
         SELECT 1
         FROM memory_lifecycle_events lifecycle
@@ -220,12 +234,14 @@ export async function searchMemories(
       )
     ORDER BY m.embedding <=> ${vector}::vector, m.generated_at DESC, m.id
     LIMIT ${limit}
-  `;
-
-  return rows.map((row) => ({
-    ...serializeMemory(row),
-    similarity: row.similarity
-  }));
+    `;
+    const after = await dependencies.database<Array<{ active_model_id: string | null }>>`
+      SELECT active_model_id FROM memory_embedding_state WHERE singleton = true`;
+    if ((after[0]?.active_model_id ?? null) === pinnedModel) {
+      return rows.map((row) => ({ ...serializeMemory(row), similarity: row.similarity }));
+    }
+  }
+  throw new MemoryEmbeddingError();
 }
 
 export async function getMemory(
@@ -260,8 +276,11 @@ export async function getMemory(
       lifecycle.requested_by AS lifecycle_requested_by,
       lifecycle.superseding_memory_id,
       lifecycle.superseding_run_id,
-      lifecycle.created_at AS lifecycle_created_at
+      lifecycle.created_at AS lifecycle_created_at,
+      m.rebuild_id,
+      rebuild.status AS rebuild_status
     FROM memories m
+    LEFT JOIN memory_rebuilds rebuild ON rebuild.id = m.rebuild_id
     LEFT JOIN memory_lifecycle_events lifecycle
       ON lifecycle.memory_id = m.id
     WHERE m.id = ${memoryId}
@@ -312,7 +331,11 @@ export async function getMemoryTimeline(
       m.generated_at,
       m.metadata
     FROM memories m
-    WHERE NOT EXISTS (
+    WHERE (m.rebuild_id IS NULL OR EXISTS (
+      SELECT 1 FROM memory_rebuilds rebuild
+      WHERE rebuild.id = m.rebuild_id AND rebuild.status = 'succeeded'
+    ))
+      AND NOT EXISTS (
       SELECT 1
       FROM memory_lifecycle_events lifecycle
       WHERE lifecycle.memory_id = m.id
