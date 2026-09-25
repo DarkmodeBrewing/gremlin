@@ -74,8 +74,8 @@ Status: complete — production verified 2026-09-22.
 
 ### M10 — Memory lifecycle and reconstruction
 
-Status: Parts 1 and 2 production verified 2026-09-25 and merged. Part 3 is in
-progress on `feat/m10-full-rebuild`.
+Status: all three parts production verified 2026-09-25. Part 3 is in PR #13,
+pending merge; v0.2.0 tagging follows the accepted merge revision.
 
 M10 is delivered in three ordered parts:
 
@@ -101,6 +101,14 @@ supersession linked to the successful run, authorization, and intact canonical
 history. Failure and concurrent-claim behavior is covered by PostgreSQL
 integration tests. See the [M10 handoff](handoffs/M10.md) for the acceptance
 record.
+
+Part 3 production acceptance verified a 25-source full rebuild that activated
+7 memories after switching live retrieval from 4096-dimensional Qwen embeddings
+to 1536-dimensional OpenAI embeddings. Supersession, historical and canonical
+evidence preservation, search after cutover, and authorization passed in
+production. Failure, concurrency, post-snapshot, and recovery paths passed in
+PostgreSQL integration tests. The [M10 handoff](handoffs/M10.md) records the
+evidence and the processing-window observation's limit.
 
 Across all three parts, Gremlin must preserve evidence, generator provenance,
 canonical source history, and server-side authorization. M10 deliberately does
