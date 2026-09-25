@@ -74,8 +74,8 @@ Status: complete — production verified 2026-09-22.
 
 ### M10 — Memory lifecycle and reconstruction
 
-Status: Part 1 production verified 2026-09-25 and merged. Part 2 is in progress
-on `feat/m10-selective-reconstruction`.
+Status: Parts 1 and 2 production verified 2026-09-25. Part 2 is in PR #12;
+Part 3 is next after its merge.
 
 M10 is delivered in three ordered parts:
 
@@ -94,6 +94,13 @@ REST and MCP search plus MCP timeline, preserved authorized historical inspectio
 a single append-only lifecycle event, repeat-invalidation conflict, and intact
 memory, canonical interaction, and evidence rows. See [M10 handoff](handoffs/M10.md)
 for the acceptance record.
+
+Part 2 production acceptance verified explicit interaction/event reconstruction,
+complete evidence-set protection, exact active deduplication, append-only
+supersession linked to the successful run, authorization, and intact canonical
+history. Failure and concurrent-claim behavior is covered by PostgreSQL
+integration tests. See the [M10 handoff](handoffs/M10.md) for the acceptance
+record.
 
 Across all three parts, Gremlin must preserve evidence, generator provenance,
 canonical source history, and server-side authorization. M10 deliberately does
