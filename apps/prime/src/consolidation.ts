@@ -20,7 +20,18 @@ const requestBodySchema = z.object({}).strict().optional();
 const runQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20)
 });
-type Trigger = "manual" | "background";
+const sourceReferenceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("interaction"), id: z.string().uuid() }).strict(),
+  z.object({ kind: z.literal("event"), id: z.string().uuid() }).strict()
+]);
+const reconstructionSchema = z.object({
+  sources: z.array(sourceReferenceSchema).min(1).max(100).refine(
+    (sources) => new Set(sources.map((source) => `${source.kind}:${source.id}`)).size === sources.length,
+    "Duplicate source reference"
+  )
+}).strict();
+type SourceReference = z.infer<typeof sourceReferenceSchema>;
+type Trigger = "manual" | "background" | "reconstruction";
 type InteractionRow = Readonly<{
   content: string;
   conversation_id: string;
@@ -38,8 +49,10 @@ type EventRow = Readonly<{
 }>;
 type IdRow = Readonly<{ id: string }>;
 type ClaimedBatch = Readonly<{
+  requestedBy: string;
   runId: string;
   sources: readonly ConsolidationSource[];
+  trigger: Trigger;
 }>;
 
 export type ConsolidationResult = Readonly<{
@@ -69,6 +82,13 @@ export class ConsolidationExecutionError extends Error {
     this.name = "ConsolidationExecutionError";
     this.code = code;
     this.runId = runId;
+  }
+}
+
+export class ReconstructionSourceConflictError extends Error {
+  constructor() {
+    super("Selected sources are unavailable or exceed the configured batch limits");
+    this.name = "ReconstructionSourceConflictError";
   }
 }
 
@@ -125,7 +145,8 @@ async function claimBatch(
   dependencies: ConsolidationDependencies,
   requestedBy: string,
   trigger: Trigger,
-  background?: BackgroundConsolidationOptions
+  background?: BackgroundConsolidationOptions,
+  explicitSources?: readonly SourceReference[]
 ): Promise<ClaimedBatch | null> {
   const manual = trigger === "manual";
   const retryCutoff = new Date(
@@ -133,7 +154,7 @@ async function claimBatch(
   );
   const maxAttempts = background?.maxAttempts ?? 1;
   return dependencies.database.begin(async (transaction) => {
-    const interactions = await transaction<InteractionRow[]>`
+    const interactions = explicitSources === undefined ? await transaction<InteractionRow[]>`
       SELECT i.id, i.conversation_id, i.occurred_at, i.source_principal, i.role, i.content
       FROM interactions i
       WHERE NOT EXISTS (SELECT 1 FROM consolidation_run_sources source WHERE source.interaction_id = i.id AND source.status IN ('processing', 'succeeded'))
@@ -147,8 +168,14 @@ async function claimBatch(
           AND NOT EXISTS (SELECT 1 FROM consolidation_run_sources recent WHERE recent.interaction_id = i.id AND recent.status = 'failed' AND recent.completed_at > ${retryCutoff})
         ))
       ORDER BY i.occurred_at, i.id LIMIT ${dependencies.batchSize} FOR UPDATE OF i SKIP LOCKED
+    ` : await transaction<InteractionRow[]>`
+      SELECT i.id, i.conversation_id, i.occurred_at, i.source_principal, i.role, i.content
+      FROM interactions i
+      WHERE i.id = ANY(${explicitSources.filter((source) => source.kind === "interaction").map((source) => source.id)}::uuid[])
+        AND NOT EXISTS (SELECT 1 FROM consolidation_run_sources claimed WHERE claimed.interaction_id = i.id AND claimed.status = 'processing')
+      ORDER BY i.id FOR UPDATE OF i SKIP LOCKED
     `;
-    const events = await transaction<EventRow[]>`
+    const events = explicitSources === undefined ? await transaction<EventRow[]>`
       SELECT e.id, e.occurred_at, e.source_principal, e.type, e.content
       FROM events e
       WHERE NOT EXISTS (SELECT 1 FROM consolidation_run_event_sources source WHERE source.event_id = e.id AND source.status IN ('processing', 'succeeded'))
@@ -162,6 +189,12 @@ async function claimBatch(
           AND NOT EXISTS (SELECT 1 FROM consolidation_run_event_sources recent WHERE recent.event_id = e.id AND recent.status = 'failed' AND recent.completed_at > ${retryCutoff})
         ))
       ORDER BY e.occurred_at, e.id LIMIT ${dependencies.batchSize} FOR UPDATE OF e SKIP LOCKED
+    ` : await transaction<EventRow[]>`
+      SELECT e.id, e.occurred_at, e.source_principal, e.type, e.content
+      FROM events e
+      WHERE e.id = ANY(${explicitSources.filter((source) => source.kind === "event").map((source) => source.id)}::uuid[])
+        AND NOT EXISTS (SELECT 1 FROM consolidation_run_event_sources claimed WHERE claimed.event_id = e.id AND claimed.status = 'processing')
+      ORDER BY e.id FOR UPDATE OF e SKIP LOCKED
     `;
     const selected = selectSources(
       [
@@ -171,6 +204,9 @@ async function claimBatch(
       dependencies.batchSize,
       dependencies.maxSourceCharacters
     );
+    if (explicitSources !== undefined && selected.length !== explicitSources.length) {
+      throw new ReconstructionSourceConflictError();
+    }
     if (selected.length === 0 && !manual) {
       return null;
     }
@@ -198,7 +234,7 @@ async function claimBatch(
         await transaction`INSERT INTO consolidation_run_event_sources (run_id, event_id, status) VALUES (${run.id}, ${source.id}, 'processing')`;
       }
     }
-    return { runId: run.id, sources: selected };
+    return { requestedBy, runId: run.id, sources: selected, trigger };
   });
 }
 
@@ -280,8 +316,21 @@ async function persistMemories(
   embeddingModel: string,
   embeddings: readonly (readonly number[])[],
   dimensions: number
-): Promise<void> {
-  await dependencies.database.begin(async (transaction) => {
+): Promise<number> {
+  return dependencies.database.begin(async (transaction) => {
+    const reconstruction = batch.sources.length > 0 && batch.trigger === "reconstruction";
+    const selectedInteractions = batch.sources.filter((source) => source.kind === "interaction").map((source) => source.id);
+    const selectedEvents = batch.sources.filter((source) => source.kind === "event").map((source) => source.id);
+    // Lock eligible memories before comparing fingerprints and changing visibility.
+    const eligible = reconstruction ? await transaction<Array<{ id: string }>>`
+      SELECT m.id FROM memories m
+      WHERE NOT EXISTS (SELECT 1 FROM memory_lifecycle_events lifecycle WHERE lifecycle.memory_id = m.id)
+        AND (EXISTS (SELECT 1 FROM memory_evidence me WHERE me.memory_id = m.id AND me.interaction_id = ANY(${selectedInteractions}::uuid[]))
+          OR EXISTS (SELECT 1 FROM memory_event_evidence me WHERE me.memory_id = m.id AND me.event_id = ANY(${selectedEvents}::uuid[])))
+        AND NOT EXISTS (SELECT 1 FROM memory_evidence me WHERE me.memory_id = m.id AND NOT (me.interaction_id = ANY(${selectedInteractions}::uuid[])))
+        AND NOT EXISTS (SELECT 1 FROM memory_event_evidence me WHERE me.memory_id = m.id AND NOT (me.event_id = ANY(${selectedEvents}::uuid[])))
+      ORDER BY m.id FOR UPDATE OF m
+    ` : [];
     await transaction`INSERT INTO embedding_models (model_id, provider, dimensions) VALUES (${embeddingModel}, ${dependencies.embeddingProvider.name}, ${dimensions}) ON CONFLICT (model_id) DO NOTHING`;
     const models = await transaction<
       Array<{ dimensions: number; provider: string }>
@@ -296,10 +345,32 @@ async function persistMemories(
         "Embedding model registration does not match provider output"
       );
     }
+    const retained = new Set<string>();
+    const seen = new Set<string>();
+    let memoryCount = 0;
     for (const [index, candidate] of candidates.entries()) {
       const embedding = embeddings[index];
       if (embedding === undefined) {
         throw new Error("Missing validated embedding");
+      }
+      if (reconstruction) {
+        const interactionIds = candidate.evidence.filter((evidence) => evidence.kind === "interaction").map((evidence) => evidence.id).sort();
+        const eventIds = candidate.evidence.filter((evidence) => evidence.kind === "event").map((evidence) => evidence.id).sort();
+        const fingerprint = JSON.stringify([candidate.namespace, candidate.content, interactionIds, eventIds]);
+        if (seen.has(fingerprint)) continue;
+        seen.add(fingerprint);
+        const existing = await transaction<Array<{ id: string }>>`
+          SELECT m.id FROM memories m
+          WHERE m.namespace = ${candidate.namespace} AND m.content = ${candidate.content}
+            AND NOT EXISTS (SELECT 1 FROM memory_lifecycle_events lifecycle WHERE lifecycle.memory_id = m.id)
+            AND ARRAY(SELECT me.interaction_id::text FROM memory_evidence me WHERE me.memory_id = m.id ORDER BY me.interaction_id) = ${interactionIds}::text[]
+            AND ARRAY(SELECT me.event_id::text FROM memory_event_evidence me WHERE me.memory_id = m.id ORDER BY me.event_id) = ${eventIds}::text[]
+          ORDER BY m.id LIMIT 1 FOR UPDATE OF m
+        `;
+        if (existing[0] !== undefined) {
+          retained.add(existing[0].id);
+          continue;
+        }
       }
       const memories = await transaction<IdRow[]>`
         INSERT INTO memories (namespace, content, confidence, embedding, embedding_model_id, generated_by, consolidation_run_id, metadata)
@@ -309,6 +380,7 @@ async function persistMemories(
       if (memory === undefined) {
         throw new Error("Memory insert returned no record");
       }
+      memoryCount++;
       for (const evidence of candidate.evidence) {
         if (evidence.kind === "interaction") {
           await transaction`INSERT INTO memory_evidence (memory_id, interaction_id) VALUES (${memory.id}, ${evidence.id})`;
@@ -317,8 +389,18 @@ async function persistMemories(
         }
       }
     }
+    if (reconstruction && candidates.length > 0) {
+      for (const memory of eligible) {
+        if (retained.has(memory.id)) continue;
+        await transaction`
+          INSERT INTO memory_lifecycle_events (memory_id, action, reason, requested_by, superseding_run_id)
+          VALUES (${memory.id}, 'superseded', 'Selective reconstruction', ${batch.requestedBy}, ${batch.runId})
+        `;
+      }
+    }
     await updateSourceStatuses(transaction, batch.runId, "succeeded");
-    await transaction`UPDATE consolidation_runs SET status = 'succeeded', memory_count = ${candidates.length}, completed_at = now() WHERE id = ${batch.runId} AND status = 'processing'`;
+    await transaction`UPDATE consolidation_runs SET status = 'succeeded', memory_count = ${memoryCount}, completed_at = now() WHERE id = ${batch.runId} AND status = 'processing'`;
+    return memoryCount;
   });
 }
 
@@ -336,9 +418,10 @@ export async function consolidateSources(
   dependencies: ConsolidationDependencies,
   requestedBy: string,
   trigger: Trigger = "manual",
-  background?: BackgroundConsolidationOptions
+  background?: BackgroundConsolidationOptions,
+  explicitSources?: readonly SourceReference[]
 ): Promise<ConsolidationResult | null> {
-  const batch = await claimBatch(dependencies, requestedBy, trigger, background);
+  const batch = await claimBatch(dependencies, requestedBy, trigger, background, explicitSources);
   if (batch === null) {
     return null;
   }
@@ -388,7 +471,7 @@ export async function consolidateSources(
     return failRun(dependencies.database, batch.runId, "embedding_failure");
   }
   try {
-    await persistMemories(
+    const memoryCount = await persistMemories(
       dependencies,
       batch,
       candidates,
@@ -396,15 +479,15 @@ export async function consolidateSources(
       embeddings,
       dimensions
     );
+    return {
+      memoryCount,
+      runId: batch.runId,
+      sourceCount: batch.sources.length,
+      status: "succeeded"
+    };
   } catch {
     return failRun(dependencies.database, batch.runId, "persistence_failure");
   }
-  return {
-    memoryCount: candidates.length,
-    runId: batch.runId,
-    sourceCount: batch.sources.length,
-    status: "succeeded"
-  };
 }
 
 /** Source-compatible alias retained for v0.1 callers. */
@@ -512,6 +595,33 @@ export function registerConsolidationRoutes(
         return reply
           .code(error.code === "persistence_failure" ? 500 : 502)
           .send({ error: "consolidation_failed", runId: error.runId });
+      }
+      throw error;
+    }
+  });
+  server.post("/admin/reconstruct", {
+    config: {
+      rateLimit: {
+        max: dependencies.rateLimit?.maximum ?? 5,
+        timeWindow: dependencies.rateLimit?.windowMilliseconds ?? 60_000
+      }
+    }
+  }, async (request, reply) => {
+    const principal = await authenticatePrincipal(request, dependencies.database);
+    if (principal === null) return sendUnauthorized(reply);
+    if (!principal.canConsolidate) return reply.code(403).send({ error: "forbidden" });
+    const parsed = reconstructionSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_request", fields: ["sources"] });
+    try {
+      return await consolidateSources(dependencies, principal.id, "reconstruction", undefined, parsed.data.sources);
+    } catch (error: unknown) {
+      if (error instanceof ReconstructionSourceConflictError) {
+        return reply.code(409).send({ error: "sources_unavailable" });
+      }
+      if (error instanceof ConsolidationExecutionError) {
+        request.log.error({ errorCode: error.code, operation: "consolidation.reconstruction", runId: error.runId }, "Reconstruction failed");
+        return reply.code(error.code === "persistence_failure" ? 500 : 502)
+          .send({ error: "reconstruction_failed", runId: error.runId });
       }
       throw error;
     }
