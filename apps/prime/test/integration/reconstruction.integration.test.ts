@@ -109,7 +109,7 @@ describe("selective reconstruction", () => {
     expect(response.json()).toMatchObject({ memoryCount: 0, sourceCount: 2 });
     expect(await database`SELECT id FROM memories`).toHaveLength(1);
     expect(await database`SELECT id FROM memory_lifecycle_events`).toHaveLength(0);
-    expect(await database`SELECT id FROM consolidation_run_sources WHERE interaction_id = ${ids.interactionId}`).toHaveLength(2);
+    expect(await database`SELECT run_id FROM consolidation_run_sources WHERE interaction_id = ${ids.interactionId}`).toHaveLength(2);
   });
 
   it("preserves active memories when generation fails or yields no replacement", async () => {
