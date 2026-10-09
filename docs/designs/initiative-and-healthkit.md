@@ -100,6 +100,49 @@ Acceptance:
 
 ### Design principle
 
+### Product philosophy: ambient agency, transparent autonomy
+
+Gremlin aims to feel present through continuity, contextual awareness and
+justified initiative, not by imitating a friend, claiming affection or
+pretending to have human motives. It may reach out when it has a grounded
+reason; an occasional low-stakes opener is permissible within user-selected
+limits, but generating engagement is not itself a reason to interrupt.
+
+Presence is not personhood. The interface should offer a deliberate way to
+break anthropomorphic impressions: users can dismiss an initiative or inspect
+*why* it happened without being forced to read technical explanations in the
+normal conversation. Explanations describe recorded system evidence and
+decisions, never fabricated feelings or purported hidden model thoughts.
+
+### User control and auditable initiative
+
+- Provide global do-not-disturb for a specified duration, quiet hours,
+  per-topic snooze, one-off dismissal, and persistent topic opt-out.
+  Suppression persists across clients, restarts and model changes.
+- Treat dismissals as explicit scoped feedback. Silence is not rejection.
+  A previously explained observation should not prompt repeated contact
+  without meaningful new evidence or a user-approved follow-up.
+- Enforce suppression, permissions, rate limits and delivery budgets in a
+  deterministic policy gate; model-assessed urgency cannot override it.
+  Any exceptional delivery category requires explicit user authorization.
+- Persist an append-only decision ledger for **every** candidate, including
+  rejected, suppressed, postponed and expired proposals, not just messages
+  actually delivered. Capture trigger, evidence/provenance, model and
+  evaluation version, policy checks/version, decision, delivery attempts,
+  user feedback and outcome.
+- Make a discreet “Why this message?” affordance available for each
+  initiative. Render explanations from recorded inputs, policy results and
+  tool/evaluation events; do not ask an LLM to invent retrospective
+  reasoning. Apply current authorization and privacy rules to audit views.
+- Allow a user to ask why an expected notification was *not* delivered.
+  Audit retention and sensitive evidence visibility require explicit policy.
+
+Example: three days of elevated resting heart rate alongside declining
+sleep scores may produce a cautious conversation opener **only** when the
+data is sufficiently fresh and reliable and health-related outreach is
+enabled. Gremlin should present observations, not a diagnosis or a claim
+that it is emotionally worried.
+
 Gremlin may autonomously propose and initiate conversations based on relevant
 memories, observations, associations and ongoing objectives, including topics
 not explicitly requested by the user. Every initiative must be traceable to
