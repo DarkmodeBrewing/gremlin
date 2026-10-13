@@ -154,6 +154,55 @@ Add one vertical integration at a time. Candidate order:
 Integrations contribute canonical interactions or events. They do not create
 authoritative memories directly.
 
+### M14 — Persistent Missions
+
+Status: directional — product direction recorded 2026-10-08.
+
+Give Gremlin durable objectives, continuity, policies, approval rules, triggers,
+state and history across disposable executions. Gremlin owns Mission state;
+Runner owns execution lifecycle. Prime does not orchestrate Docker.
+
+Start with one objective and one bounded trigger. See the
+[Mission, Initiative and HealthKit design](designs/initiative-and-healthkit.md)
+for dependencies and acceptance criteria.
+
+### M15 — Conversational Initiative
+
+Status: directional — product direction recorded 2026-10-08.
+
+Allow Gremlin to initiate actual conversations from authorized memories,
+events, observations, unfinished discussions and spontaneous associations.
+Topics need not have been explicitly selected for monitoring; occasional
+low-stakes curiosity is allowed within user-defined boundaries.
+
+Persist a conversation proposal before delivery. Evaluate evidence, novelty,
+relevance and timing; enforce quiet hours, cooldowns, topic controls and cost
+budgets. Keep proposal, delivery, reply and follow-up continuity independent
+of model executions. Retain evidence for “Why did you bring this up?”
+
+Start with an in-app opener based on existing conversation history. A Mission
+reference is optional; HealthKit and push notifications are not prerequisites.
+See the [detailed design](designs/initiative-and-healthkit.md).
+
+### M16 — Native iOS HealthKit ingestion
+
+Status: directional — product direction recorded 2026-10-08.
+
+Add a native-capable iOS adapter that reads selected, user-authorized HealthKit
+data and contributes meaningful canonical events through authenticated Gremlin
+ingestion. This is a bounded integration following M13's source rules.
+
+Begin with one metric and foreground synchronization. Prove idempotent retries,
+source provenance, incremental corrections/retractions, health-specific access
+boundaries and visible freshness before background synchronization.
+
+Deterministic, rebuildable observations may supply M15 proposals. Health
+ingestion is independently useful and does not itself enable unsolicited
+health conversations. See the [detailed design](designs/initiative-and-healthkit.md).
+
+M14–M16 are provisional planning identifiers. They extend the directional
+roadmap without locking implementation order, release scope or delivery dates.
+
 ## Later systems
 
 ### SANITY CHECK
@@ -165,10 +214,15 @@ provenance so the system can later evaluate reviewer usefulness.
 
 ### Tasks and Gremlin Puck
 
-Puck remains postponed until Gremlin has stable APIs, a task model, reliable
-memory lifecycle, and proven interaction patterns. Puck should become a thin
-physical client, not the component that forces Gremlin's domain model into
-existence.
+M14 makes the persistent Mission direction explicit; M15 adds conversational
+initiative as its own capability, including proposals without a Mission.
+Chat/Puck presents conversations and feedback while Gremlin owns durable state.
+
+Puck remains a thin client over stable Gremlin APIs. The existing PWA/desktop
+direction need not wait for HealthKit; M16 supplies a concrete requirement for
+a native iOS adapter. Its shell/framework is an open decision, not a replacement
+of the current client plan. See the
+[dependency and ownership design](designs/initiative-and-healthkit.md).
 
 ## Scope discipline
 
