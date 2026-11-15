@@ -15,7 +15,7 @@ import {
   type EmbeddingProvider
 } from "./embedding-provider.js";
 
-const consolidatorVersion = "gremlin-consolidator-v2";
+export const consolidatorVersion = "gremlin-consolidator-v2";
 const requestBodySchema = z.object({}).strict().optional();
 const runQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20)
@@ -31,7 +31,7 @@ const reconstructionSchema = z.object({
   )
 }).strict();
 type SourceReference = z.infer<typeof sourceReferenceSchema>;
-type Trigger = "manual" | "background" | "reconstruction";
+type Trigger = "manual" | "background" | "reconstruction" | "full_rebuild";
 type InteractionRow = Readonly<{
   content: string;
   conversation_id: string;
@@ -92,7 +92,7 @@ export class ReconstructionSourceConflictError extends Error {
   }
 }
 
-function serializeInteraction(row: InteractionRow): ConsolidationSource {
+export function serializeInteraction(row: InteractionRow): ConsolidationSource {
   return {
     content: row.content,
     conversationId: row.conversation_id,
@@ -104,7 +104,7 @@ function serializeInteraction(row: InteractionRow): ConsolidationSource {
   };
 }
 
-function serializeEvent(row: EventRow): ConsolidationSource {
+export function serializeEvent(row: EventRow): ConsolidationSource {
   return {
     content: row.content,
     eventType: row.type,
@@ -115,7 +115,7 @@ function serializeEvent(row: EventRow): ConsolidationSource {
   };
 }
 
-function selectSources(
+export function selectSources(
   sources: readonly ConsolidationSource[],
   batchSize: number,
   maximumCharacters: number
@@ -238,7 +238,7 @@ async function claimBatch(
   });
 }
 
-function validateEvidence(
+export function validateEvidence(
   candidates: readonly CandidateMemory[],
   sources: readonly ConsolidationSource[]
 ): void {
@@ -258,7 +258,7 @@ function validateEvidence(
   }
 }
 
-function validateEmbeddings(
+export function validateEmbeddings(
   embeddings: readonly (readonly number[])[],
   expectedCount: number
 ): number {
@@ -345,6 +345,10 @@ async function persistMemories(
         "Embedding model registration does not match provider output"
       );
     }
+    await transaction`INSERT INTO memory_embedding_state (singleton, active_model_id)
+      VALUES (true, ${embeddingModel}) ON CONFLICT (singleton) DO UPDATE
+      SET active_model_id = EXCLUDED.active_model_id
+      WHERE memory_embedding_state.active_model_id IS NULL`;
     const retained = new Set<string>();
     const seen = new Set<string>();
     let memoryCount = 0;
@@ -511,6 +515,10 @@ export async function recoverInterruptedConsolidationRuns(
       await updateSourceStatuses(transaction, run.id, "failed");
     }
     if (runs.length > 0) {
+      await transaction`
+        UPDATE memory_rebuilds SET status = 'failed', error_code = 'interrupted', completed_at = now()
+        WHERE consolidation_run_id IN ${transaction(runs.map((run) => run.id))} AND status = 'processing'
+      `;
       await transaction`
         UPDATE consolidation_runs
         SET status = 'failed', error_code = 'interrupted', completed_at = now()

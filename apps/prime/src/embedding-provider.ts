@@ -20,7 +20,7 @@ export type EmbeddingBatch = Readonly<{
 export interface EmbeddingProvider {
   readonly configuredModel: string;
   readonly name: string;
-  embedMany(input: readonly string[]): Promise<EmbeddingBatch>;
+  embedMany(input: readonly string[], model?: string): Promise<EmbeddingBatch>;
 }
 
 export class EmbeddingProviderError extends Error {
@@ -41,9 +41,9 @@ export function createOpenRouterEmbeddingProvider(options: Readonly<{
   return {
     configuredModel: options.model,
     name: "openrouter",
-    async embedMany(input) {
+    async embedMany(input, model = options.model) {
       if (input.length === 0) {
-        return { embeddings: [], model: options.model };
+        return { embeddings: [], model };
       }
 
       const response = await fetchImplementation(
@@ -55,7 +55,7 @@ export function createOpenRouterEmbeddingProvider(options: Readonly<{
             "Content-Type": "application/json",
             "X-OpenRouter-Title": "Gremlin Prime"
           },
-          body: JSON.stringify({ input, model: options.model }),
+          body: JSON.stringify({ input, model }),
           signal: AbortSignal.timeout(options.timeoutMilliseconds)
         }
       );

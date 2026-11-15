@@ -6,6 +6,7 @@ import {
 } from "./consolidation.js";
 import { checkDatabase, type Database } from "./database.js";
 import { registerEventRoutes } from "./events.js";
+import { registerFullRebuildRoutes } from "./full-rebuild.js";
 import { registerInteractionRoutes } from "./interactions.js";
 import { registerMcpRoutes } from "./mcp.js";
 import { registerMemoryLifecycleRoutes } from "./memory-lifecycle.js";
@@ -38,6 +39,10 @@ export async function buildApplication(
     embeddingProvider: dependencies.consolidation.embeddingProvider
   });
   registerConsolidationRoutes(server, {
+    ...dependencies.consolidation,
+    database: dependencies.database
+  });
+  registerFullRebuildRoutes(server, {
     ...dependencies.consolidation,
     database: dependencies.database
   });
