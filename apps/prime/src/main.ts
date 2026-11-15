@@ -10,6 +10,7 @@ import {
   validateConsolidationWorkerPrincipal
 } from "./consolidation-worker.js";
 import { closeDatabase, createDatabase } from "./database.js";
+import { createProviderUsageRecorder } from "./provider-usage.js";
 import { persistProviderObservation } from "./provider-history.js";
 import { createProviderHealth } from "./provider-health.js";
 import { createOpenRouterEmbeddingProvider } from "./embedding-provider.js";
@@ -20,10 +21,12 @@ async function start(): Promise<void> {
   const database = createDatabase(configuration);
   const providerHealth = createProviderHealth(fetch, (kind, observation) =>
     persistProviderObservation(database, kind, observation));
+  const providerUsage = createProviderUsageRecorder(database);
   const consolidation = {
     batchSize: consolidationConfiguration.CONSOLIDATION_BATCH_SIZE,
     embeddingProvider: createOpenRouterEmbeddingProvider({
       fetchImplementation: providerHealth.observe("embedding"),
+      reportUsage: body => providerUsage.record("embedding", body),
       apiKey: consolidationConfiguration.OPENROUTER_API_KEY,
       model: consolidationConfiguration.EMBEDDING_MODEL,
       timeoutMilliseconds: consolidationConfiguration.MODEL_REQUEST_TIMEOUT_MS
@@ -32,6 +35,7 @@ async function start(): Promise<void> {
       consolidationConfiguration.CONSOLIDATION_MAX_SOURCE_CHARACTERS,
     provider: createOpenRouterConsolidationProvider({
       fetchImplementation: providerHealth.observe("consolidation"),
+      reportUsage: body => providerUsage.record("consolidation", body),
       apiKey: consolidationConfiguration.OPENROUTER_API_KEY,
       model: consolidationConfiguration.CONSOLIDATION_MODEL,
       timeoutMilliseconds: consolidationConfiguration.MODEL_REQUEST_TIMEOUT_MS
@@ -40,6 +44,7 @@ async function start(): Promise<void> {
   const server = await buildApplication({
     consolidation,
     providerHealth,
+    providerUsage,
     database,
     logLevel: configuration.LOG_LEVEL
   });

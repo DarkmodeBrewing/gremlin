@@ -117,3 +117,30 @@ persistence status. Observation storage failures are fail-open and do not
 change the original provider response or trigger a paid retry. Do not infer
 complete provider history while telemetry is unavailable. Deploy migration
 0010 before starting this code; no existing migration is edited.
+
+## Prime provider cost accounting (subsequent slice)
+
+After migration 0011 and deployment of the cost slice, protected operations
+status includes `usage`, grouped by provider kind for all-time and the last
+24 hours, plus `usageTelemetry`. Accounting uses only provider-reported
+`usage.cost` and safe nonnegative integer token fields, following
+[OpenRouter usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting).
+It does not estimate prices or make billing API calls.
+
+`reportedCostCredits` is a decimal string summed in PostgreSQL; zero means a
+reported zero. Missing, invalid or unreported cost stays null/unknown.
+`parsedResponses`, `reportedCostResponses` and `unknownCostResponses` disclose
+coverage. Token totals are also partial sums of valid reported fields.
+This is partial Prime telemetry, not an account-wide bill: it excludes Chat's
+direct generation, other clients, pre-deployment history, transport/HTTP-error
+responses, malformed JSON, and rows lost during telemetry-storage outages.
+It includes successfully parsed HTTP responses even if later model-output
+validation fails, because such requests may still have been billed.
+
+A `provider_usage_unavailable` alert signals current-process storage failure;
+recording is fail-open and never retries a paid provider request. Successful
+storage clears the active storage alert, not the historical gap. Rows persist
+across restarts but are not backfilled or reconciled with the provider account.
+Migration 0011 must precede deployment; review this slice after durable
+operations and the normal-use observation period. No cost threshold, automatic
+provider switching, outbound alert, or spending decision is added here.

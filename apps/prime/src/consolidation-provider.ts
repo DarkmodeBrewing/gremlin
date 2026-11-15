@@ -150,6 +150,7 @@ const outputJsonSchema = {
 export function createOpenRouterConsolidationProvider(options: Readonly<{
   apiKey: string;
   fetchImplementation?: typeof fetch;
+  reportUsage?: (response: unknown) => Promise<void>;
   model: string;
   timeoutMilliseconds: number;
 }>): ConsolidationProvider {
@@ -215,6 +216,10 @@ export function createOpenRouterConsolidationProvider(options: Readonly<{
           "OpenRouter consolidation returned invalid JSON"
         );
       }
+
+      // Report only sanitized usage downstream. Reporting must not change
+      // provider success/failure semantics or trigger a paid retry.
+      try { await options.reportUsage?.(responseBody); } catch { /* fail open */ }
 
       const parsedResponse = openRouterResponseSchema.safeParse(responseBody);
 
