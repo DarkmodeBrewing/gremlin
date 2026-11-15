@@ -92,3 +92,28 @@ read-only and confirm provider observations are distinct from `/health`.
 
 M11 endpoints require deployment of the M11 code; tagging v0.2.0 or updating
 only the database restart policy does not install them.
+
+## Durable provider history and operator alerts
+
+After migration `0010_provider_observations.sql`, Prime appends fixed provider
+HTTP classifications to PostgreSQL. `providerHistory.latest` and the most
+recent 20 observations survive restarts; `providers` remains process-local.
+A successful subsequent request clears the active provider alert while keeping
+failure/recovery history. No request URLs, headers, source content, response
+bodies or exception messages are stored. This table grows with requests;
+retention/export is a subsequent operational decision, not an automatic purge.
+
+The protected operations response includes `alerts` for unresolved provider
+failures, provider-telemetry persistence failure, or consolidation stalled for
+30 minutes. Stalled means an old processing run, or an unresolved source at
+least 30 minutes old with no successful run in the last 30 minutes. It is a
+heuristic, not proof that the worker is dead. Empty backlog and missing provider
+activity alone do not alert. Inspect timestamps; persistent failures can remain
+unresolved after a restart until a real request verifies recovery.
+
+Alerts are operator status data only: no email, chat messages or notification
+service is configured. `providerTelemetry` reports the current process's
+persistence status. Observation storage failures are fail-open and do not
+change the original provider response or trigger a paid retry. Do not infer
+complete provider history while telemetry is unavailable. Deploy migration
+0010 before starting this code; no existing migration is edited.

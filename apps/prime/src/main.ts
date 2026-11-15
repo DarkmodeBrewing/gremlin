@@ -10,6 +10,7 @@ import {
   validateConsolidationWorkerPrincipal
 } from "./consolidation-worker.js";
 import { closeDatabase, createDatabase } from "./database.js";
+import { persistProviderObservation } from "./provider-history.js";
 import { createProviderHealth } from "./provider-health.js";
 import { createOpenRouterEmbeddingProvider } from "./embedding-provider.js";
 
@@ -17,7 +18,8 @@ async function start(): Promise<void> {
   const configuration = loadConfiguration();
   const consolidationConfiguration = loadConsolidationConfiguration();
   const database = createDatabase(configuration);
-  const providerHealth = createProviderHealth();
+  const providerHealth = createProviderHealth(fetch, (kind, observation) =>
+    persistProviderObservation(database, kind, observation));
   const consolidation = {
     batchSize: consolidationConfiguration.CONSOLIDATION_BATCH_SIZE,
     embeddingProvider: createOpenRouterEmbeddingProvider({
