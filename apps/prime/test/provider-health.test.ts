@@ -47,3 +47,12 @@ describe("provider HTTP observations", () => {
     expect(JSON.stringify(health.snapshot())).not.toContain("private");
   });
 });
+
+it("fails open when observation persistence fails without retrying paid requests", async () => {
+  const request = vi.fn<typeof fetch>(async () => new Response(null, { status: 200 }));
+  const health = createProviderHealth(request, async () => { throw new Error("private database credential"); });
+  expect((await health.observe("embedding")("https://provider.example")).status).toBe(200);
+  expect(request).toHaveBeenCalledTimes(1);
+  expect(health.persistence().status).toBe("unavailable");
+  expect(JSON.stringify(health.persistence())).not.toContain("private");
+});

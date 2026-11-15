@@ -1,5 +1,5 @@
-type ProviderKind = "consolidation" | "embedding";
-type Observation = Readonly<{
+export type ProviderKind = "consolidation" | "embedding";
+export type Observation = Readonly<{
   status: "not_observed" | "ok" | "authentication_failed" | "rate_limited" | "unavailable" | "request_failed";
   observedAt: string | null;
   lastSuccessAt: string | null;
@@ -14,11 +14,15 @@ const initial = (): Observation => ({
 
 // Observe existing requests only: polling status must not spend provider credit.
 // Store fixed classifications, never headers, URLs, request bodies or error text.
-export function createProviderHealth(fetchImplementation: typeof fetch = fetch) {
+export function createProviderHealth(fetchImplementation: typeof fetch = fetch,
+  persist?: (kind: ProviderKind, observation: Observation) => Promise<void>
+) {
+  let persistenceStatus: "not_configured" | "not_observed" | "ok" | "unavailable" = persist ? "not_observed" : "not_configured";
+  let persistenceFailureAt: string | null = null;
   const observations: Record<ProviderKind, Observation> = {
     consolidation: initial(), embedding: initial()
   };
-  function record(kind: ProviderKind, httpStatus: number | null): void {
+  async function record(kind: ProviderKind, httpStatus: number | null): Promise<void> {
     const now = new Date().toISOString();
     const status: Observation["status"] = httpStatus === null ? "unavailable"
       : httpStatus >= 200 && httpStatus < 300 ? "ok"
@@ -30,20 +34,32 @@ export function createProviderHealth(fetchImplementation: typeof fetch = fetch) 
       lastSuccessAt: status === "ok" ? now : observations[kind].lastSuccessAt,
       lastFailureAt: status === "ok" ? observations[kind].lastFailureAt : now
     };
+    if (persist) {
+      try {
+        await persist(kind, observations[kind]);
+        persistenceStatus = "ok";
+      } catch {
+        // A telemetry outage must not turn a paid successful request into a
+        // retried provider call or mask the provider's original error.
+        persistenceStatus = "unavailable";
+        persistenceFailureAt = new Date().toISOString();
+      }
+    }
   }
   return {
     observe(kind: ProviderKind): typeof fetch {
       return async (input, init) => {
         try {
           const response = await fetchImplementation(input, init);
-          record(kind, response.status);
+          await record(kind, response.status);
           return response;
         } catch (error: unknown) {
-          record(kind, null);
+          await record(kind, null);
           throw error;
         }
       };
     },
+    persistence() { return { status: persistenceStatus, lastFailureAt: persistenceFailureAt }; },
     snapshot() {
       return { consolidation: { ...observations.consolidation }, embedding: { ...observations.embedding } };
     }

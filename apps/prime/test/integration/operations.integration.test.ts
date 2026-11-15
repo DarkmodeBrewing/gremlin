@@ -36,6 +36,7 @@ describe("operations status", () => {
     });
   });
   beforeEach(async () => {
+    await database`TRUNCATE provider_observations`;
     await database`TRUNCATE consolidation_runs, embedding_models, interactions, events, principals CASCADE`;
     await database`INSERT INTO principals (principal_id, api_key_hash, can_consolidate) VALUES
       ('system:consolidator', ${hashApiKey(admin)}, true), ('client:ordinary', ${hashApiKey(ordinary)}, false)`;
