@@ -74,8 +74,10 @@ Status: complete — production verified 2026-09-22.
 
 ### M10 — Memory lifecycle and reconstruction
 
-Status: all three parts production verified 2026-09-25. Part 3 is in PR #13,
-pending merge; v0.2.0 tagging follows the accepted merge revision.
+Status: complete — PR #13 and the PostgreSQL restart-policy fix (#17) merged.
+Released as [`v0.2.0`](releases/v0.2.0.md) on 2026-11-15 at
+`2a241543b77505764a5959e2601dc21a4cbd4d69`. The production rebuild
+was reverified on 2026-11-15; see the [acceptance report](reports/M10.3-production-acceptance.md).
 
 M10 is delivered in three ordered parts:
 
@@ -115,7 +117,7 @@ canonical source history, and server-side authorization. M10 deliberately does
 not introduce semantic contradiction resolution or a temporal belief engine.
 
 Production acceptance of all three parts closes the v0.2 functional scope.
-The accepted merge revision can then be tagged v0.2.0.
+The accepted merge revision is tagged `v0.2.0`.
 
 M9 and M10 are the committed v0.2 sequence.
 
@@ -125,6 +127,11 @@ These stages are intentionally not locked until M8 through M10 have produced
 real operational experience.
 
 ### M11 — Operations and observability
+
+Status: first bounded slice in development — protected operations status and
+[recovery runbook](runbooks/M11-operations-recovery.md). Provider HTTP observations,
+consolidation backlog, failed runs and last success are the initial scope.
+Durable provider history, alert delivery and cost accounting remain later work.
 
 - export/import and tested disaster recovery
 - readiness and dependency health
