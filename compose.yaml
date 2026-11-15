@@ -1,6 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:0.8.6-pg18-trixie
+    restart: unless-stopped
     environment:
       POSTGRES_DB: gremlin
       POSTGRES_USER: gremlin
