@@ -11,12 +11,15 @@ import { registerInteractionRoutes } from "./interactions.js";
 import { registerMcpRoutes } from "./mcp.js";
 import { registerMemoryLifecycleRoutes } from "./memory-lifecycle.js";
 import { registerMemoryRetrievalRoutes } from "./memory-retrieval.js";
+import { registerOperationsRoutes } from "./operations.js";
+import { createProviderHealth, type ProviderHealth } from "./provider-health.js";
 import { buildServer } from "./server.js";
 
 export type ApplicationDependencies = Readonly<{
   consolidation: Omit<ConsolidationDependencies, "database">;
   database: Database;
   logLevel: string | false;
+  providerHealth?: ProviderHealth;
 }>;
 
 export async function buildApplication(
@@ -27,6 +30,7 @@ export async function buildApplication(
     logLevel: dependencies.logLevel
   });
 
+  registerOperationsRoutes(server, dependencies.database, dependencies.providerHealth ?? createProviderHealth());
   registerInteractionRoutes(server, dependencies.database);
   registerEventRoutes(server, dependencies.database);
   registerMemoryRetrievalRoutes(server, {

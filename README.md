@@ -275,6 +275,12 @@ rotation, PostgreSQL backup/restore, integrity checks, and v0.1 release
 acceptance are in
 [docs/runbooks/M8-release-closure.md](docs/runbooks/M8-release-closure.md).
 
+Protected `GET /admin/operations` exposes consolidation backlog, run outcomes,
+last success, and observed provider HTTP failures separately from `/health`.
+It requires `can_consolidate` and does not probe paid model APIs. See the
+[M11 operations and recovery runbook](docs/runbooks/M11-operations-recovery.md)
+for status semantics and database/credential recovery steps.
+
 ## Development
 
 Requirements: Node.js 24+ and pnpm 11.
