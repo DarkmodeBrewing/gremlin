@@ -10,12 +10,13 @@ import {
   type ConsolidationSource
 } from "./consolidation-provider.js";
 import type { Database } from "./database.js";
+import { loadPriorConversationContext } from "./consolidation-context.js";
 import {
   EmbeddingProviderError,
   type EmbeddingProvider
 } from "./embedding-provider.js";
 
-export const consolidatorVersion = "gremlin-consolidator-v2";
+export const consolidatorVersion = "gremlin-consolidator-v3";
 const requestBodySchema = z.object({}).strict().optional();
 const runQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20)
@@ -439,8 +440,9 @@ export async function consolidateSources(
   }
   let candidates: readonly CandidateMemory[];
   try {
-    candidates = await dependencies.provider.consolidate(batch.sources);
-    validateEvidence(candidates, batch.sources);
+    const context = await loadPriorConversationContext(dependencies.database, batch.sources);
+    candidates = await dependencies.provider.consolidate(batch.sources, context);
+    validateEvidence(candidates, [...batch.sources, ...context]);
   } catch {
     return failRun(dependencies.database, batch.runId, "provider_failure");
   }

@@ -58,6 +58,7 @@ describe("OpenRouter consolidation provider", () => {
     });
     const provider = createOpenRouterConsolidationProvider({
       apiKey: "test-key",
+      namespaceRoots: { "client:gremlin-chat": "projects" },
       fetchImplementation,
       model: "example/consolidator",
       timeoutMilliseconds: 1_000
@@ -76,6 +77,7 @@ describe("OpenRouter consolidation provider", () => {
   it("rejects malformed model output", async () => {
     const provider = createOpenRouterConsolidationProvider({
       apiKey: "test-key",
+      namespaceRoots: { "client:gremlin-chat": "projects" },
       fetchImplementation: vi.fn<typeof fetch>(async () =>
         new Response(
           JSON.stringify({
@@ -105,6 +107,7 @@ describe("OpenRouter consolidation provider", () => {
     const source = sourceInteraction();
     const provider = createOpenRouterConsolidationProvider({
       apiKey: "test-key",
+      namespaceRoots: { "client:gremlin-chat": "projects" },
       fetchImplementation: vi.fn<typeof fetch>(async () =>
         new Response(
           JSON.stringify({

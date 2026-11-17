@@ -56,6 +56,18 @@ describe("loadConsolidationConfiguration", () => {
     });
   });
 
+  it("validates explicit destination roots without leaking configuration values", () => {
+    const base = { CONSOLIDATION_MODEL: "test", EMBEDDING_MODEL: "test", OPENROUTER_API_KEY: "openrouter-test-key" };
+    expect(loadConsolidationConfiguration({ ...base, CONSOLIDATION_NAMESPACE_ROOTS: '{"client:chat":"user"}' }).CONSOLIDATION_NAMESPACE_ROOTS)
+      .toEqual({ "client:chat": "user" });
+    expect(loadConsolidationConfiguration({ ...base, CONSOLIDATION_NAMESPACE_ROOTS: '{"agent:other":{"namespace":"project/client","includeDescendants":false}}' }).CONSOLIDATION_NAMESPACE_ROOTS)
+      .toEqual({ "agent:other": { namespace: "project/client", includeDescendants: false } });
+    for (const invalid of ['private-invalid-json', '{"client:chat":"../secret"}', '{"unknown":"user"}']) {
+      expect(() => loadConsolidationConfiguration({ ...base, CONSOLIDATION_NAMESPACE_ROOTS: invalid }))
+        .toThrow("Invalid consolidation configuration fields: CONSOLIDATION_NAMESPACE_ROOTS");
+    }
+  });
+
   it("parses the background worker switch explicitly", () => {
     const configuration = loadConsolidationConfiguration({
       BACKGROUND_CONSOLIDATION_ENABLED: "true",

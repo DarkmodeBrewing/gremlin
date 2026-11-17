@@ -34,6 +34,7 @@ async function start(): Promise<void> {
     maxSourceCharacters:
       consolidationConfiguration.CONSOLIDATION_MAX_SOURCE_CHARACTERS,
     provider: createOpenRouterConsolidationProvider({
+      namespaceRoots: consolidationConfiguration.CONSOLIDATION_NAMESPACE_ROOTS,
       fetchImplementation: providerHealth.observe("consolidation"),
       reportUsage: body => providerUsage.record("consolidation", body),
       apiKey: consolidationConfiguration.OPENROUTER_API_KEY,
