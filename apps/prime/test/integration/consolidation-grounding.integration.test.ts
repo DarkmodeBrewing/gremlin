@@ -69,6 +69,21 @@ describe("grounded incremental memory",()=>{
       .toMatchObject({namespace:'user/pets/cats',content:"The user has two cats, Ada and Pip. Pip is Ada's son."});
     expect(await searchMemories({database,embeddingProvider},'agent:other','Who is Pip?',5)).toEqual([]);
   });
+  it("keeps an exact destination readable under an exact grant",async()=>{
+    await database`DELETE FROM principal_memory_read_policies WHERE principal_id='agent:other'`;
+    await database`INSERT INTO principal_memory_read_policies(principal_id,namespace_prefix,include_descendants) VALUES('agent:other','project/client',false)`;
+    const current=await append(randomUUID(),'This project uses PostgreSQL.','2030-01-02','agent:other');
+    const provider=createOpenRouterConsolidationProvider({apiKey:'test',model:'test',timeoutMilliseconds:1000,
+      namespaceRoots:{'agent:other':{namespace:'project/client',includeDescendants:false}},
+      fetchImplementation:async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({memories:[{
+        namespace:'projects/database',content:'This project uses PostgreSQL.',confidence:0.9,evidence:[{kind:'interaction',id:current}]
+      }]})}}]}))});
+    const embeddingProvider={name:'test',configuredModel:'test',embedMany:async(texts:readonly string[])=>({model:'test',embeddings:texts.map(()=>[1,0,0])})};
+    expect(await consolidateSources({database,batchSize:20,maxSourceCharacters:200000,embeddingProvider,provider},'system:consolidator'))
+      .toMatchObject({memoryCount:1,status:'succeeded'});
+    expect((await searchMemories({database,embeddingProvider},'agent:other','Which database?',5))[0]?.namespace).toBe('project/client');
+    expect(await searchMemories({database,embeddingProvider},'client:chat','Which database?',5)).toEqual([]);
+  });
   it("does not read later records, assistant answers or another principal using the same conversation UUID",async()=>{
     const conversation=randomUUID();
     const prior=await append(conversation,'Earlier user fact','2030-01-01');

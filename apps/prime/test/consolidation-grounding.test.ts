@@ -20,6 +20,15 @@ describe("consolidation grounding", () => {
     expect(groundCandidateMemories([memory(record,"restricted/secret")], [record], [], roots)[0]?.namespace).toBe("user/restricted/secret");
     expect(()=>groundCandidateMemories([memory(record)], [record], [], {})).toThrow();
   });
+  it("supports exact destinations without appending model-selected topics", () => {
+    const record = source({sourcePrincipal:"agent:other"});
+    const destinations = {"agent:other": {namespace:"project/client",includeDescendants:false}};
+    expect(groundCandidateMemories([memory(record,"arbitrary/topic")],[record],[],destinations)[0]?.namespace)
+      .toBe("project/client");
+    const user = source();
+    expect(()=>groundCandidateMemories([{...memory(user),evidence:[user,record].map(s=>({kind:"interaction" as const,id:s.id}))}],
+      [user,record],[],{"client:chat":{namespace:"project/client",includeDescendants:true},...destinations})).toThrow();
+  });
   it("rejects assistant-only, context-only, unknown and cross-root evidence", () => {
     const user = source(); const assistant=source({role:"assistant"}); const prior=source();
     for(const evidence of [[assistant],[prior],[source()]]) {

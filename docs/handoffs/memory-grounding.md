@@ -16,6 +16,16 @@ root to each source principal. For example:
 CONSOLIDATION_NAMESPACE_ROOTS='{"client:gremlin-chat":"user"}'
 ```
 
+String values allow topic descendants. For an existing exact grant, configure
+an exact destination rather than widening the read policy:
+
+```json
+{"agent:opencode":{"namespace":"project/gremlin-chat","includeDescendants":false}}
+```
+
+This stores every topic from that principal at the exact configured namespace.
+Combined evidence with different destination policies fails closed.
+
 A model topic `pets/cats` becomes `user/pets/cats`; an already rooted topic stays
 unchanged. Unknown principal roots fail before the provider request. Candidates
 with evidence across different configured roots, unknown/assistant evidence,
@@ -43,8 +53,8 @@ subjects. Prior context alone cannot create a memory. Generator version is v3.
 
 ## Verification and limits
 
-On 2026-11-17, frozen-lockfile install, typecheck, build, 67 unit tests and
-56 PostgreSQL/pgvector integration tests passed. Compose configuration and
+On 2026-11-17, frozen-lockfile install, typecheck, build, 68 unit tests and
+57 PostgreSQL/pgvector integration tests passed. Compose configuration and
 `git diff --check` also passed.
 
 Validation uses mocked external HTTP responses and a real disposable

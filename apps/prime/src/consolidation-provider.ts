@@ -148,12 +148,22 @@ const outputJsonSchema = {
   type: "object"
 } as const;
 
+export type MemoryNamespaceDestination = string | Readonly<{
+  namespace: string;
+  includeDescendants: boolean;
+}>;
+
+function destinationPolicy(destination: MemoryNamespaceDestination | undefined) {
+  return typeof destination === "string"
+    ? { namespace: destination, includeDescendants: true } : destination;
+}
+
 export function createOpenRouterConsolidationProvider(options: Readonly<{
   apiKey: string;
   fetchImplementation?: typeof fetch;
   reportUsage?: (response: unknown) => Promise<void>;
   model: string;
-  namespaceRoots?: Readonly<Record<string, string>>;
+  namespaceRoots?: Readonly<Record<string, MemoryNamespaceDestination>>;
   timeoutMilliseconds: number;
 }>): ConsolidationProvider {
   const fetchImplementation = options.fetchImplementation ?? fetch;
@@ -165,7 +175,7 @@ export function createOpenRouterConsolidationProvider(options: Readonly<{
       const assertions = sources.filter(item => item.kind === "event" || item.role === "user");
       if (sources.length > 0 && assertions.length === 0) return [];
       for (const assertion of assertions) {
-        if (!memoryNamespaceSchema.safeParse(options.namespaceRoots?.[assertion.sourcePrincipal]).success) {
+        if (!memoryNamespaceSchema.safeParse(destinationPolicy(options.namespaceRoots?.[assertion.sourcePrincipal])?.namespace).success) {
           throw new ConsolidationProviderError("Source principal has no configured namespace root");
         }
       }
@@ -266,7 +276,7 @@ export function groundCandidateMemories(
   candidates: readonly CandidateMemory[],
   sources: readonly ConsolidationSource[],
   context: readonly ConsolidationSource[],
-  namespaceRoots: Readonly<Record<string, string>>
+  namespaceRoots: Readonly<Record<string, MemoryNamespaceDestination>>
 ): readonly CandidateMemory[] {
   const supplied = new Map([...context, ...sources].filter(source => source.kind === "event" || source.role === "user").map(source => [`${source.kind}:${source.id}`, source]));
   const newAssertions = new Set(sources.filter(source => source.kind === "event" || source.role === "user")
@@ -275,18 +285,22 @@ export function groundCandidateMemories(
     if (!candidate.evidence.some(evidence => newAssertions.has(`${evidence.kind}:${evidence.id}`))) {
       throw new ConsolidationProviderError("Memory lacks new user or event evidence");
     }
-    const roots = new Set(candidate.evidence.map(evidence => {
+    const destinations = candidate.evidence.map(evidence => {
       const source = supplied.get(`${evidence.kind}:${evidence.id}`);
-      const root = source === undefined ? undefined : namespaceRoots[source.sourcePrincipal];
-      if (root === undefined || !memoryNamespaceSchema.safeParse(root).success) {
+      const destination = destinationPolicy(source === undefined ? undefined : namespaceRoots[source.sourcePrincipal]);
+      if (destination === undefined || !memoryNamespaceSchema.safeParse(destination.namespace).success) {
         throw new ConsolidationProviderError("Memory evidence has no configured namespace root");
       }
-      return root;
-    }));
-    if (roots.size !== 1) throw new ConsolidationProviderError("Memory crosses configured namespace roots");
-    const root = [...roots][0]!;
-    const namespace = candidate.namespace === root || candidate.namespace.startsWith(`${root}/`)
-      ? candidate.namespace : `${root}/${candidate.namespace}`;
+      return destination;
+    });
+    const policy = destinations[0]!;
+    if (destinations.some(destination => destination.namespace !== policy.namespace || destination.includeDescendants !== policy.includeDescendants)) {
+      throw new ConsolidationProviderError("Memory crosses configured namespace roots");
+    }
+    const root = policy.namespace;
+    const namespace = !policy.includeDescendants ? root
+      : candidate.namespace === root || candidate.namespace.startsWith(`${root}/`)
+        ? candidate.namespace : `${root}/${candidate.namespace}`;
     if (!memoryNamespaceSchema.safeParse(namespace).success) {
       throw new ConsolidationProviderError("Memory namespace exceeds configured bounds");
     }
