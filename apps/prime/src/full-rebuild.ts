@@ -1,3 +1,4 @@
+import { selectPriorConversationContext } from "./consolidation-context.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { TransactionSql } from "postgres";
 import { z } from "zod";
@@ -193,8 +194,9 @@ export async function executeFullRebuild(dependencies: ConsolidationDependencies
       const batch = selectSources(sources.slice(offset), dependencies.batchSize, dependencies.maxSourceCharacters);
       let candidates: readonly CandidateMemory[];
       try {
-        candidates = await dependencies.provider.consolidate(batch);
-        validateEvidence(candidates, batch);
+        const context = selectPriorConversationContext(batch, sources);
+        candidates = await dependencies.provider.consolidate(batch, context);
+        validateEvidence(candidates, [...batch, ...context]);
       } catch { throw new RebuildFailure("provider_failure"); }
       if (candidates.length > 0) {
         let embedded;

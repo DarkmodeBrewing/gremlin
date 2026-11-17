@@ -209,7 +209,7 @@ describe("manual consolidation", () => {
       embedding: "[0.1,0.2,0.3]",
       namespace: "projects/gremlin"
     });
-    expect(memoryRows[0]?.generated_by).toContain("gremlin-consolidator-v2");
+    expect(memoryRows[0]?.generated_by).toContain("gremlin-consolidator-v3");
     expect(memoryRows[0]?.evidence_ids).toEqual(
       [userInteractionId, assistantInteractionId].sort()
     );

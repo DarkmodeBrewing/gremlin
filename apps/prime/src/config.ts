@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { memoryNamespaceSchema } from "./memory-namespace.js";
 
 const configurationSchema = z.object({
   DATABASE_URL: z.string().url(),
@@ -25,6 +26,15 @@ const consolidationConfigurationSchema = z.object({
     .min(100_000)
     .max(2_000_000)
     .default(200_000),
+  CONSOLIDATION_NAMESPACE_ROOTS: z.string().default("{}").transform((value, context) => {
+    try {
+      return z.record(z.string().regex(/^(client|agent|system):[a-z0-9][a-z0-9-]{0,62}$/), memoryNamespaceSchema)
+        .parse(JSON.parse(value || "{}"));
+    } catch {
+      context.addIssue({ code: "custom", message: "Invalid namespace root mapping" });
+      return z.NEVER;
+    }
+  }),
   CONSOLIDATION_MODEL: z.string().min(1).max(200),
   CONSOLIDATION_POLL_INTERVAL_MS: z.coerce
     .number()

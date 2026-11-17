@@ -18,7 +18,7 @@ describe("full memory rebuild", () => {
   let server: FastifyInstance;
   let apiKey: string;
   let embeddingModel: string;
-  let derive: (sources: readonly ConsolidationSource[]) => Promise<readonly CandidateMemory[]>;
+  let derive: (sources: readonly ConsolidationSource[], context?: readonly ConsolidationSource[]) => Promise<readonly CandidateMemory[]>;
   const principalId = "system:consolidator";
 
   const memory = (sources: readonly ConsolidationSource[], content: string): CandidateMemory => ({
@@ -37,7 +37,7 @@ describe("full memory rebuild", () => {
       database, logLevel: false,
       consolidation: {
         batchSize, maxSourceCharacters: 200_000,
-        provider: { name: "test", model: "test", consolidate: (sources) => derive(sources) },
+        provider: { name: "test", model: "test", consolidate: (sources, context) => derive(sources, context) },
         embeddingProvider: {
           configuredModel: "new-model", name: "test",
           embedMany: async (texts, model) => ({
@@ -98,6 +98,24 @@ describe("full memory rebuild", () => {
     }
     throw new Error("Timed out waiting for full rebuild");
   }
+
+  it("provides earlier snapshot context to later batches and preserves contextual evidence", async () => {
+    await server.close(); server = await createServer(1);
+    const conversation = randomUUID(); const first = randomUUID(); const second = randomUUID();
+    await database`INSERT INTO interactions(id,conversation_id,occurred_at,source_principal,role,content) VALUES
+      (${first},${conversation},'2030-01-01',${principalId},'user','The beverage is Reserve Ale.'),
+      (${second},${conversation},'2030-01-02',${principalId},'user','I have two bottles.')`;
+    derive = async (sources, context) => {
+      if (sources[0]!.id === first) return [];
+      expect(context?.map(source => source.id)).toEqual([first]);
+      return [memory([...sources, ...context!], 'Two bottles of Reserve Ale.')];
+    };
+    const accepted = await post('/admin/rebuild');
+    expect(await completed(accepted.json().rebuildId)).toMatchObject({status:'succeeded'});
+    expect((await database`SELECT interaction_id FROM memory_evidence`).map(row=>row.interaction_id).sort())
+      .toEqual([first,second].sort());
+    await server.close(); server = await createServer(20);
+  });
 
   it("keeps old retrieval during staging and atomically activates a new embedding model", async () => {
     const ids = await seedSources();

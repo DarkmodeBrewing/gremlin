@@ -30,6 +30,7 @@ describe("operations status", () => {
       consolidation: {
         batchSize: 20, maxSourceCharacters: 200_000,
         provider: createOpenRouterConsolidationProvider({ apiKey: "test-only", model: "test",
+          namespaceRoots: { "system:consolidator": "operations" },
           timeoutMilliseconds: 1000, fetchImplementation: health.observe("consolidation") }),
         embeddingProvider: { name: "test", configuredModel: "test", embedMany: async () => ({ model: "test", embeddings: [] }) }
       }
