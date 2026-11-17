@@ -1,4 +1,9 @@
-# M11 Prime provider cost accounting — draft subsequent slice
+# M11 Prime provider cost accounting
+
+> Current status (2026-11-17): deployed and production verified. See the
+> [bounded closeout](../reports/M11-closeout.md) for evidence, scope limits
+> and the final PR #21 merge gate. Preparation notes below are historical;
+> their pre-deployment statements no longer describe current deployment.
 
 Depends on durable operations/migration 0010. Review after the normal-use
 observation period. Not merged or deployed; migration 0011 must precede this
