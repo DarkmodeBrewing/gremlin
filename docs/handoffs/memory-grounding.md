@@ -67,7 +67,8 @@ These tests prove deterministic boundaries and context delivery, not that a live
 language model can never misinterpret a statement. User questions versus
 assertions and semantic support still require model interpretation. Context is
 bounded and may omit an older antecedent; the instructed behavior is omission,
-not guessing. A controlled real-provider acceptance remains a rollout gate.
+not guessing. The [controlled real-provider acceptance](../reports/memory-grounding-real-provider-acceptance.md)
+passed on 2026-11-17, including Chat answers and the exact OpenCode destination.
 
 ## Rollout and existing data repair
 
