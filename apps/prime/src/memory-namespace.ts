@@ -50,3 +50,8 @@ export const memoryNamespaceSchema = z
   .min(1)
   .max(200)
   .refine(isValidNamespace);
+
+export const memoryDestinationSchema = z.object({
+  namespace: memoryNamespaceSchema,
+  includeDescendants: z.boolean()
+}).strict();

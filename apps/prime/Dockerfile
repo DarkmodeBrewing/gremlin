@@ -25,6 +25,8 @@ RUN pnpm install --prod --frozen-lockfile
 
 COPY --from=build /app/apps/prime/dist apps/prime/dist
 COPY --from=build /app/migrations migrations
+COPY profiles profiles
+COPY clients/opencode/opencode.json clients/opencode/opencode.json
 
 USER node
 EXPOSE 3000

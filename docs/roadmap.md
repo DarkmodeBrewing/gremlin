@@ -128,8 +128,7 @@ real operational experience.
 
 ### M11 — Operations and observability
 
-Status: bounded scope accepted for closeout on 2026-11-17; final PR #21
-checks and operator-approved merge remain pending. Protected status, recovery
+Status: bounded scope complete — accepted and merged on 2026-11-17. Protected status, recovery
 guidance, durable provider history, derived operator alerts and partial Prime
 cost accounting are delivered. See the [closeout evidence](reports/M11-closeout.md).
 
@@ -145,6 +144,11 @@ delivery, direct Chat cost coverage and observation retention policy.
 - database and embedding migration procedures
 
 ### M12 — Declarative client and agent profiles
+
+Status: first two slices implemented for review — versioned Chat/OpenCode
+contracts and read-only metadata drift checks. See the [M12 handoff](handoffs/M12.md)
+and [profile documentation](../profiles/README.md). Runtime profile consumption,
+configuration generation and broader client rollout remain subsequent work.
 
 Describe, but do not execute, the contract for each client:
 

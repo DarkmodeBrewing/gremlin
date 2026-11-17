@@ -281,6 +281,14 @@ It requires `can_consolidate` and does not probe paid model APIs. See the
 [M11 operations and recovery runbook](docs/runbooks/M11-operations-recovery.md)
 for status semantics and database/credential recovery steps.
 
+## Declarative client profiles
+
+Validate Chat/OpenCode contracts offline with `pnpm profiles:validate`. With a
+protected `DATABASE_URL` and the target Prime's `CONSOLIDATION_NAMESPACE_ROOTS`,
+`pnpm profiles:check` reports principal/namespace drift in a read-only metadata
+snapshot. It does not provision clients, change permissions or start processes.
+See [profiles/README.md](profiles/README.md) for scope, exit codes and limitations.
+
 ## Development
 
 Requirements: Node.js 24+ and pnpm 11.

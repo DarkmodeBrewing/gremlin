@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { memoryNamespaceSchema } from "./memory-namespace.js";
+import { principalIdSchema } from "./auth.js";
+import { memoryDestinationSchema, memoryNamespaceSchema } from "./memory-namespace.js";
+
+export const consolidationNamespaceRootsSchema = z.record(
+  principalIdSchema, z.union([memoryNamespaceSchema, memoryDestinationSchema])
+);
 
 const configurationSchema = z.object({
   DATABASE_URL: z.string().url(),
@@ -28,10 +33,7 @@ const consolidationConfigurationSchema = z.object({
     .default(200_000),
   CONSOLIDATION_NAMESPACE_ROOTS: z.string().default("{}").transform((value, context) => {
     try {
-      return z.record(z.string().regex(/^(client|agent|system):[a-z0-9][a-z0-9-]{0,62}$/), z.union([memoryNamespaceSchema, z.object({
-          namespace: memoryNamespaceSchema, includeDescendants: z.boolean()
-        }).strict()]))
-        .parse(JSON.parse(value || "{}"));
+      return consolidationNamespaceRootsSchema.parse(JSON.parse(value || "{}"));
     } catch {
       context.addIssue({ code: "custom", message: "Invalid namespace root mapping" });
       return z.NEVER;

@@ -17,7 +17,9 @@
     "source:export": "pnpm --filter @gremlin/prime source:export",
     "start": "pnpm --parallel --filter @gremlin/prime --filter @gremlin/chat start",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "profiles:validate": "pnpm --filter @gremlin/prime profiles:validate",
+    "profiles:check": "pnpm --filter @gremlin/prime profiles:check"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",

@@ -14,7 +14,9 @@
     "start": "node dist/main.js",
     "test": "vitest run --exclude '**/*.integration.test.ts'",
     "test:integration": "vitest run test/integration --no-file-parallelism",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "profiles:validate": "tsx src/profiles.ts validate",
+    "profiles:check": "tsx src/profiles.ts check"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
