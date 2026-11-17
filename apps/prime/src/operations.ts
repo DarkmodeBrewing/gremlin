@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
+import { readProviderUsage, type ProviderUsageRecorder } from "./provider-usage.js";
 import { operationsAlerts } from "./operations-alerts.js";
 import { readProviderHistory } from "./provider-history.js";
 import { authenticatePrincipal } from "./auth.js";
@@ -10,7 +11,8 @@ import type { ProviderHealth } from "./provider-health.js";
 export function registerOperationsRoutes(
   server: FastifyInstance,
   database: Database,
-  providerHealth: ProviderHealth
+  providerHealth: ProviderHealth,
+  providerUsage?: ProviderUsageRecorder
 ): void {
   server.get("/admin/operations", async (request, reply) => {
     reply.header("Cache-Control", "no-store");
@@ -56,7 +58,10 @@ export function registerOperationsRoutes(
       persistenceStatus: providerHealth.persistence().status,
       backlog: counts.pending + counts.failed, oldestUnresolvedAt,
       lastSuccessAt: runs!.last_success_at, oldestProcessingAt: runs!.oldest_processing_at });
+    if (providerUsage?.snapshot().status === "unavailable") alerts.push({ code: "provider_usage_unavailable", severity: "error" });
     return {
+      usage: await readProviderUsage(database),
+      usageTelemetry: providerUsage?.snapshot() ?? { status: "not_configured", lastFailureAt: null },
       alerts,
       providerHistory,
       providerTelemetry: providerHealth.persistence(),

@@ -33,6 +33,7 @@ export class EmbeddingProviderError extends Error {
 export function createOpenRouterEmbeddingProvider(options: Readonly<{
   apiKey: string;
   fetchImplementation?: typeof fetch;
+  reportUsage?: (response: unknown) => Promise<void>;
   model: string;
   timeoutMilliseconds: number;
 }>): EmbeddingProvider {
@@ -75,6 +76,10 @@ export function createOpenRouterEmbeddingProvider(options: Readonly<{
           "OpenRouter embedding returned invalid JSON"
         );
       }
+
+      // Report only sanitized usage downstream. Reporting must not change
+      // provider success/failure semantics or trigger a paid retry.
+      try { await options.reportUsage?.(responseBody); } catch { /* fail open */ }
 
       const parsedResponse = embeddingResponseSchema.safeParse(responseBody);
 

@@ -1,5 +1,10 @@
 # M11 durable operations slice
 
+> Current status (2026-11-17): deployed and production verified. See the
+> [bounded closeout](../reports/M11-closeout.md) for evidence, scope limits
+> and the final PR #21 merge gate. Preparation notes below are historical;
+> their pre-deployment statements no longer describe current deployment.
+
 Prepared for review; not deployed. Migration 0010 adds sanitized, append-only
 provider HTTP observations. The operations endpoint exposes durable latest
 state and 20 recent observations alongside process-local state, plus derived

@@ -128,10 +128,13 @@ real operational experience.
 
 ### M11 — Operations and observability
 
-Status: first bounded slice in development — protected operations status and
-[recovery runbook](runbooks/M11-operations-recovery.md). Provider HTTP observations,
-consolidation backlog, failed runs and last success are the initial scope.
-Durable provider history, alert delivery and cost accounting remain later work.
+Status: bounded scope accepted for closeout on 2026-11-17; final PR #21
+checks and operator-approved merge remain pending. Protected status, recovery
+guidance, durable provider history, derived operator alerts and partial Prime
+cost accounting are delivered. See the [closeout evidence](reports/M11-closeout.md).
+
+The broader directional items below remain deferred, as do external alert
+delivery, direct Chat cost coverage and observation retention policy.
 
 - export/import and tested disaster recovery
 - readiness and dependency health
