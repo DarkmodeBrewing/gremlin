@@ -151,10 +151,17 @@ Describe, but do not execute, the contract for each client:
 - principal identity
 - readable memory namespaces
 - allowed ingestion capabilities
-- model/provider policy
+- model/provider policy, including explicit model overrides and declarative
+  automatic-routing eligibility, budgets, and fallback constraints
 - OpenCode and MCP configuration
 - runtime and network expectations
 - project-specific context
+
+Adaptive model routing is a directional extension of these contracts, not
+an M12 execution commitment. Start by evaluating a replaceable OpenRouter
+routing backend against a fixed Balanced baseline; preserve Gremlin-owned
+policy, provenance, cost limits, and overrides. See the
+[adaptive model-routing proposal](proposals/adaptive-model-routing.md).
 
 The external runner or shell owns container execution. Gremlin must not
 orchestrate Docker and must not receive access to the Docker socket.
