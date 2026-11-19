@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "opencode",
+  "principalId": "agent:opencode",
+  "active": true,
+  "capabilities": {
+    "ingestInteractions": true,
+    "ingestEvents": true,
+    "consolidate": false
+  },
+  "memory": {
+    "read": [
+      {
+        "namespace": "project/gremlin-chat",
+        "includeDescendants": false
+      }
+    ],
+    "destination": {
+      "namespace": "project/gremlin-chat",
+      "includeDescendants": false
+    }
+  },
+  "connection": {
+    "transport": "mcp-streamable-http",
+    "urlEnv": "GREMLIN_MCP_URL",
+    "apiKeyEnv": "GREMLIN_MCP_API_KEY",
+    "configurationFile": "clients/opencode/opencode.json",
+    "tools": [
+      "memory.search",
+      "memory.get",
+      "memory.timeline",
+      "interaction.append",
+      "event.emit"
+    ]
+  },
+  "model": {
+    "selection": "client-managed"
+  },
+  "runtime": {
+    "executionOwner": "external",
+    "kind": "external-client",
+    "networkRequirement": "prime-http-reachable"
+  },
+  "projectContext": {
+    "repository": "DarkmodeBrewing/gremlin"
+  }
+}

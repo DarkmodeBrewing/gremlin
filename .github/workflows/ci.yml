@@ -43,6 +43,9 @@ jobs:
       - name: Type-check
         run: pnpm typecheck
 
+      - name: Validate declarative client profiles
+        run: pnpm profiles:validate
+
       - name: Test
         run: pnpm test
 

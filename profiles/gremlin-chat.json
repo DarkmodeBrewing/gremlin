@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "gremlin-chat",
+  "principalId": "client:gremlin-chat",
+  "active": true,
+  "capabilities": {
+    "ingestInteractions": true,
+    "ingestEvents": false,
+    "consolidate": false
+  },
+  "memory": {
+    "read": [
+      {
+        "namespace": "user",
+        "includeDescendants": true
+      }
+    ],
+    "destination": {
+      "namespace": "user",
+      "includeDescendants": true
+    }
+  },
+  "connection": {
+    "transport": "rest",
+    "urlEnv": "GREMLIN_PRIME_URL",
+    "apiKeyEnv": "GREMLIN_CHAT_API_KEY"
+  },
+  "model": {
+    "selection": "environment",
+    "provider": "openrouter",
+    "modelEnv": "DEFAULT_CHAT_MODEL",
+    "apiKeyEnv": "OPENROUTER_API_KEY"
+  },
+  "runtime": {
+    "executionOwner": "external",
+    "kind": "service",
+    "networkRequirement": "prime-http-reachable"
+  },
+  "projectContext": {
+    "repository": "DarkmodeBrewing/gremlin"
+  }
+}
